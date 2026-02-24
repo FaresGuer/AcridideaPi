@@ -5,71 +5,79 @@ import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
 
 class AccountManagementScreen extends StatefulWidget {
-  const AccountManagementScreen({Key? key}) : super(key: key);
+  const AccountManagementScreen({super.key});
 
   @override
   State<AccountManagementScreen> createState() => _AccountManagementScreenState();
 }
 
-class _AccountManagementScreenState extends State<AccountManagementScreen> {
-  List<Worker> _workers = [
-    Worker(
-      id: 1,
-      name: 'John Doe',
-      email: 'john@example.com',
-      role: 'Farmer',
-      status: 'Active',
-      
-    ),
-    Worker(
-      id: 2,
-      name: 'Sarah Smith',
-      email: 'sarah@example.com',
-      role: 'Farmer',
-      status: 'Active',
-      
-    ),
-    Worker(
-      id: 3,
-      name: 'Mike Johnson',
-      email: 'mike@example.com',
-      role: 'Farmer',
-      status: 'Inactive',
-      
-    ),
-  ];
+class _AccountManagementScreenState extends State<AccountManagementScreen> with SingleTickerProviderStateMixin {
+  bool _pushNotifications = true;
+  bool _twoFactorEnabled = true;
+  bool _isLoading = false;
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<AuthUser?>(
       valueListenable: AuthService.currentUser,
       builder: (context, user, child) {
-        final isAdmin = (user?.role ?? '').toUpperCase() == 'ADMIN';
-        final tabCount = isAdmin ? 2 : 1;
-
-        return DefaultTabController(
-          length: tabCount,
-          child: Scaffold(
-            backgroundColor: Colors.grey.shade50,
-            appBar: AppBar(
-              backgroundColor: Colors.white,
-              title: Text('Account Management'),
-              elevation: 0.5,
-              bottom: TabBar(
-                labelColor: AppColors.primary,
-                unselectedLabelColor: AppColors.textHint,
-                indicatorColor: AppColors.primary,
-                tabs: [
-                  if (isAdmin) Tab(text: 'Workers'),
-                  Tab(text: 'Settings'),
-                ],
+        return Scaffold(
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.white, AppColors.mintBackground],
+                stops: [0.0, 0.3],
               ),
             ),
-            body: TabBarView(
-              children: [
-                if (isAdmin) _buildWorkersTab(context),
-                _buildSettingsTab(context, user),
-              ],
+            child: SafeArea(
+              child: ListView(
+                padding: EdgeInsets.all(24),
+                children: [
+                  _buildAnimatedItem(0, _buildHeader()),
+                  SizedBox(height: 24),
+                  _buildAnimatedItem(1, _buildProfileCard(user)),
+                  SizedBox(height: 24),
+                  _buildAnimatedItem(2, _buildSectionLabel('ENVIRONMENTAL ALERTS')),
+                  SizedBox(height: 12),
+                  _buildAnimatedItem(3, _buildEnvironmentalSection()),
+                  SizedBox(height: 24),
+                  _buildAnimatedItem(4, _buildSectionLabel('SECURITY')),
+                  SizedBox(height: 12),
+                  _buildAnimatedItem(5, _buildSecuritySection()),
+                  SizedBox(height: 24),
+                  _buildAnimatedItem(6, _buildSectionLabel('GENERAL')),
+                  SizedBox(height: 12),
+                  _buildAnimatedItem(7, _buildGeneralSection()),
+                  SizedBox(height: 32),
+                  _buildAnimatedItem(8, _buildLogoutButton()),
+                  SizedBox(height: 32),
+                  _buildAnimatedItem(9, Center(
+                    child: Text(
+                      'Version 2.4.0 (Build 394)',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                  )),
+                  SizedBox(height: 100),
+                ],
+              ),
             ),
           ),
         );
@@ -77,473 +85,494 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     );
   }
 
-  Widget _buildWorkersTab(BuildContext context) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Summary Cards
-          Row(
-            children: [
-              Expanded(
-                child: _SummaryCard(
-                  icon: Icons.people_outline,
-                  label: 'Total Workers',
-                  value: '${_workers.length}',
-                  color: AppColors.primary,
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: _SummaryCard(
-                  icon: Icons.check_circle_outline,
-                  label: 'Active',
-                  value: '${_workers.where((w) => w.status == 'Active').length}',
-                  color: AppColors.success,
-                ),
-              ),
-            ],
+  Widget _buildAnimatedItem(int index, Widget child) {
+    return SlideTransition(
+      position: Tween<Offset>(begin: Offset(0, 0.2), end: Offset.zero).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: Interval(index * 0.1, 1.0, curve: Curves.easeOut),
+        ),
+      ),
+      child: FadeTransition(
+        opacity: Tween<double>(begin: 0, end: 1).animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: Interval(index * 0.1, 1.0, curve: Curves.easeOut),
           ),
-          SizedBox(height: 24),
-
-          // Invite New Worker
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _showInviteDialog(),
-              icon: Icon(Icons.person_add_outlined),
-              label: Text('Grant Access - Invite Worker'),
-            ),
-          ),
-          SizedBox(height: 24),
-
-          // Worker List
-          Text('Team Members', style: Theme.of(context).textTheme.titleLarge),
-          SizedBox(height: 12),
-
-          ..._workers.map((worker) {
-            return Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: _WorkerCard(
-                worker: worker,
-                onEdit: () => _showEditWorkerDialog(worker),
-                onRemove: () => _removeWorker(worker.id),
-              ),
-            );
-          }).toList(),
-        ],
+        ),
+        child: child,
       ),
     );
   }
 
-  Widget _buildSettingsTab(BuildContext context, AuthUser? user) {
-    final roleLabel = (user?.role ?? 'FARMER').toUpperCase();
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Profile Information', style: Theme.of(context).textTheme.titleLarge),
-          SizedBox(height: 12),
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          'Profile & Settings',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        InkWell(
+          onTap: () {
+            // Toggle theme action
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Theme toggled')));
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Color(0xFFE3E8EF),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.dark_mode, color: Color(0xFF1F2937)),
+          ),
+        ),
+      ],
+    );
+  }
 
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: AppColors.primary.withOpacity(0.1),
-                    child: Icon(Icons.person, size: 40, color: AppColors.primary),
+  Widget _buildProfileCard(AuthUser? user) {
+    return Container(
+      padding: EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: Color(0xFFFFCCBC),
+                child: Text('AM', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.brown)),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                left: 0,
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 2, horizontal: 6),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF00C853),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  SizedBox(height: 16),
-                  Text(
-                    user?.fullName ?? 'User',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  child: Center(
+                    child: Text(
+                      'ADMIN',
+                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    user?.email ?? 'user@example.com',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  SizedBox(height: 12),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                ),
+              )
+            ],
+          ),
+          SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user?.fullName ?? 'Alex Morgan',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+                ),
+                Text(
+                  user?.email ?? 'alex.morgan@locust.farm',
+                  style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                ),
+                SizedBox(height: 12),
+                InkWell(
+                  onTap: _showEditProfileDialog,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: Color(0xFFE8F5E9),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      roleLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
+                      'Edit Profile',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32)),
                     ),
                   ),
-                  SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {},
-                    child: Text('Edit Profile'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: 24),
-
-          Text('Security Settings', style: Theme.of(context).textTheme.titleLarge),
-          SizedBox(height: 12),
-
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: Icon(Icons.lock_outline, color: AppColors.primary),
-                  title: Text('Change Password'),
-                  trailing: Icon(Icons.chevron_right),
-                  onTap: () {},
-                ),
-                Divider(height: 1),
-                ListTile(
-                  leading: Icon(Icons.security_outlined, color: AppColors.primary),
-                  title: Text('Two-Factor Authentication'),
-                  trailing: Switch(value: false, onChanged: (value) {}),
                 ),
               ],
             ),
           ),
-          SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
 
-          Text('Preferences', style: Theme.of(context).textTheme.titleLarge),
-          SizedBox(height: 12),
+  Widget _buildSectionLabel(String label) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        color: AppColors.textSecondary,
+        letterSpacing: 1.2,
+      ),
+    );
+  }
 
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: Icon(Icons.notifications_outlined, color: AppColors.primary),
-                  title: Text('Email Notifications'),
-                  trailing: Switch(value: true, onChanged: (value) {}),
+  Widget _buildEnvironmentalSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+         boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildSettingsTile(
+            icon: Icons.thermostat,
+            iconColor: Color(0xFFD32F2F),
+            iconBg: Color(0xFFFFEBEE),
+            title: 'Temp Thresholds',
+            subtitle: 'Alerts above 30�C',
+            onTap: () => _showSliderDialog('Temperature Threshold', '�C', 20, 40, 30),
+          ),
+          Divider(height: 1, indent: 64),
+          _buildSettingsTile(
+            icon: Icons.water_drop,
+            iconColor: Color(0xFF1976D2),
+            iconBg: Color(0xFFE3F2FD),
+            title: 'Humidity Levels',
+            subtitle: 'Optimized for Nursery Zone',
+            onTap: () => _showSliderDialog('Humidity Target', '%', 40, 90, 65),
+          ),
+          Divider(height: 1, indent: 64),
+          _buildSettingsTile(
+            icon: Icons.notifications_active,
+            iconColor: Color(0xFF7B1FA2),
+            iconBg: Color(0xFFF3E5F5),
+            title: 'Push Notifications',
+            subtitle: _pushNotifications ? 'Instant alerts enabled' : 'Notifications disabled',
+            trailing: Switch(
+              value: _pushNotifications,
+              onChanged: (val) => setState(() => _pushNotifications = val),
+              activeThumbColor: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecuritySection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+         boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildSettingsTile(
+            icon: Icons.lock,
+            iconColor: Color(0xFF455A64),
+            iconBg: Color(0xFFECEFF1),
+            title: 'Change Password',
+            onTap: _showChangePasswordDialog,
+          ),
+          Divider(height: 1, indent: 64),
+          _buildSettingsTile(
+            icon: Icons.security,
+            iconColor: Color(0xFF455A64),
+            iconBg: Color(0xFFECEFF1),
+            title: 'Two-Factor Auth',
+            subtitle: _twoFactorEnabled ? 'Enabled' : 'Disabled',
+            subtitleColor: _twoFactorEnabled ? Color(0xFF2E7D32) : Colors.grey,
+            trailing: Switch(
+              value: _twoFactorEnabled,
+              onChanged: (val) => setState(() => _twoFactorEnabled = val),
+              activeThumbColor: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGeneralSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+         boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildSettingsTile(
+            icon: Icons.language,
+            iconColor: Color(0xFF455A64),
+            iconBg: Color(0xFFECEFF1),
+            title: 'Language',
+            subtitle: 'English (US)',
+            onTap: _showLanguageDialog,
+          ),
+          Divider(height: 1, indent: 64),
+          _buildSettingsTile(
+            icon: Icons.help_outline,
+            iconColor: Color(0xFF455A64),
+            iconBg: Color(0xFFECEFF1),
+            title: 'Help & Support',
+            onTap: _showHelpDialog,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String title,
+    String? subtitle,
+    Color? subtitleColor,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                Divider(height: 1),
-                ListTile(
-                  leading: Icon(Icons.language_outlined, color: AppColors.primary),
-                  title: Text('Language'),
-                  trailing: Text('English', style: Theme.of(context).textTheme.bodySmall),
-                  onTap: () {},
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: subtitleColor ?? AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
-            ),
-          ),
-          SizedBox(height: 24),
-
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-              onPressed: () async {
-                await AuthService.logout();
-                if (!mounted) {
-                  return;
-                }
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => LoginScreen()),
-                  (route) => false,
-                );
-              },
-              child: Text('Logout'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showInviteDialog() {
-    final emailController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Invite Worker'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(
-                labelText: 'Email Address',
-                hintText: 'worker@example.com',
               ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              decoration: InputDecoration(labelText: 'Role'),
-              value: 'Operator',
-              items: ['Manager', 'Technician', 'Operator'].map((role) {
-                return DropdownMenuItem(value: role, child: Text(role));
-              }).toList(),
-              onChanged: (value) {},
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
+              if (trailing != null) trailing else Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _workers.add(Worker(
-                  id: _workers.length + 1,
-                  name: emailController.text.split('@')[0],
-                  email: emailController.text,
-                  role: 'Operator',
-                  status: 'Pending',
-                  
-                ));
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Invitation sent successfully!')),
-              );
-            },
-            child: Text('Send Invite'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditWorkerDialog(Worker worker) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit Worker'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              decoration: InputDecoration(labelText: 'Name'),
-              controller: TextEditingController(text: worker.name),
-            ),
-            SizedBox(height: 12),
-            TextField(
-              decoration: InputDecoration(labelText: 'Email'),
-              controller: TextEditingController(text: worker.email),
-            ),
-            SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              decoration: InputDecoration(labelText: 'Role'),
-              value: worker.role,
-              items: ['Manager', 'Technician', 'Operator'].map((role) {
-                return DropdownMenuItem(value: role, child: Text(role));
-              }).toList(),
-              onChanged: (value) {},
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _removeWorker(int id) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Remove Worker'),
-        content: Text('Are you sure you want to remove this worker?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () {
-              setState(() => _workers.removeWhere((w) => w.id == id));
-              Navigator.pop(context);
-            },
-            child: Text('Remove'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class Worker {
-  final int id;
-  final String name;
-  final String email;
-  final String role;
-  final String status;
-  
-
-  Worker({
-    required this.id,
-    required this.name,
-    required this.email,
-    required this.role,
-    required this.status,
-    
-  });
-}
-
-class _SummaryCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _SummaryCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            SizedBox(height: 12),
-            Text(value, style: Theme.of(context).textTheme.displaySmall),
-            SizedBox(height: 4),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ],
         ),
       ),
     );
   }
-}
 
-class _WorkerCard extends StatelessWidget {
-  final Worker worker;
-  final VoidCallback onEdit;
-  final VoidCallback onRemove;
-
-  const _WorkerCard({
-    required this.worker,
-    required this.onEdit,
-    required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
+  Widget _buildLogoutButton() {
+    return InkWell(
+      onTap: () async {
+        setState(() => _isLoading = true);
+        await Future.delayed(Duration(seconds: 1)); // Mock delay
+        await AuthService.logout();
+        if (mounted) setState(() => _isLoading = false);
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        height: 50,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Color(0xFFFFCDD2)),
+        ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: AppColors.primary.withOpacity(0.1),
-              child: Icon(Icons.person, color: AppColors.primary),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(worker.name, style: Theme.of(context).textTheme.titleMedium),
-                  SizedBox(height: 4),
-                  Text(worker.email, style: Theme.of(context).textTheme.bodySmall),
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          worker.role,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: worker.status == 'Active'
-                              ? AppColors.success.withOpacity(0.1)
-                              : Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          worker.status,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: worker.status == 'Active' ? AppColors.success : AppColors.textHint,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+            if (_isLoading)
+               SizedBox(
+                 width: 20,
+                 height: 20,
+                 child: CircularProgressIndicator(color: Color(0xFFD32F2F), strokeWidth: 2),
+               )
+            else ...[
+              Icon(Icons.logout, color: Color(0xFFD32F2F), size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Log Out',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFD32F2F),
+                ),
               ),
-            ),
-            PopupMenuButton(
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_outlined, size: 18),
-                      SizedBox(width: 8),
-                      Text('Edit'),
-                    ],
-                  ),
-                  onTap: onEdit,
-                ),
-                PopupMenuItem(
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_outline, size: 18, color: AppColors.error),
-                      SizedBox(width: 8),
-                      Text('Remove', style: TextStyle(color: AppColors.error)),
-                    ],
-                  ),
-                  onTap: onRemove,
-                ),
-              ],
-            ),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  // Dialog Helpers
+  void _showEditProfileDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit Profile'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(decoration: InputDecoration(labelText: 'Full Name', hintText: 'Alex Morgan')),
+            SizedBox(height: 12),
+            TextField(decoration: InputDecoration(labelText: 'Email', hintText: 'alex@locust.farm')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(context), child: Text('Save')),
+        ],
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Change Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(decoration: InputDecoration(labelText: 'Current Password'), obscureText: true),
+            SizedBox(height: 12),
+            TextField(decoration: InputDecoration(labelText: 'New Password'), obscureText: true),
+            SizedBox(height: 12),
+            TextField(decoration: InputDecoration(labelText: 'Confirm Password'), obscureText: true),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(context), child: Text('Update')),
+        ],
+      ),
+    );
+  }
+
+  void _showLanguageDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text('Select Language'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context),
+            child: Text('English (US)'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Fran�ais'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Espa�ol'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Help & Support'),
+        content: Text('For assistance, please contact our support team at support@locust.farm or call +1-800-LOCUST.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  void _showSliderDialog(String title, String unit, double min, double max, double current) {
+    double tempValue = current;
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(title),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(' ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  Slider(
+                    value: tempValue,
+                    min: min,
+                    max: max,
+                    divisions: 100,
+                    activeColor: AppColors.primary,
+                    onChanged: (val) => setState(() => tempValue = val),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+                ElevatedButton(onPressed: () => Navigator.pop(context), child: Text('Set')),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

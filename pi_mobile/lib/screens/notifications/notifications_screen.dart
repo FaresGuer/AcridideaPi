@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import '../../app_colors.dart';
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({Key? key}) : super(key: key);
+  const NotificationsScreen({super.key});
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  List<Notification> _notifications = [
+  final List<Notification> _notifications = [
     Notification(
       id: 1,
       title: 'Temperature Alert',
@@ -117,7 +117,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 onTap: () => _markAsRead(notification.id),
                 onDelete: () => _deleteNotification(notification.id),
               );
-            }).toList(),
+            }),
 
             if (_notifications.isEmpty)
               Padding(
