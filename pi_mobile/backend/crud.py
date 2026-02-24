@@ -48,6 +48,8 @@ def update_user(db: Session, user_id: int, user_update: UserUpdate):
         db_user.role = user_update.role
     if user_update.is_active is not None:
         db_user.is_active = user_update.is_active
+    if user_update.role_selected is not None:
+        db_user.role_selected = user_update.role_selected
     
     db.commit()
     db.refresh(db_user)

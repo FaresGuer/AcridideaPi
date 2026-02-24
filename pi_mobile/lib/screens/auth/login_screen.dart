@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../app_colors.dart';
+import '../main_navigation.dart';
 import 'registration_screen.dart';
 import '../../services/auth_service.dart';
 
@@ -260,6 +261,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     setState(() => _isSubmitting = true);
     try {
       await AuthService.login(email: email, password: password);
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => MainNavigation()),
+        (route) => false,
+      );
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),
