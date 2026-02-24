@@ -423,7 +423,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
         setState(() => _isLoading = true);
         await Future.delayed(Duration(seconds: 1)); // Mock delay
         await AuthService.logout();
-        if (mounted) setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() => _isLoading = false);
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
+        }
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(

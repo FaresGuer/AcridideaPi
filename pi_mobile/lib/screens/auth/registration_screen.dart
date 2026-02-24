@@ -262,19 +262,30 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
     }
 
     setState(() => _isSubmitting = true);
-    // Simulate API call
-    await Future.delayed(Duration(seconds: 2));
-
-    // In a real app, call AuthService.register() here
-
-    if (mounted) {
-      setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Registration successful! Please login.')),
+    
+    try {
+      await AuthService.register(
+        email: email,
+        fullName: name,
+        password: password,
       );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => LoginScreen()),
-      );
+      
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Registration successful! Please login.')),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => LoginScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Registration failed: ${e.toString()}')),
+        );
+      }
     }
   }
 }
