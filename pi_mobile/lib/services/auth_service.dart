@@ -114,6 +114,26 @@ class AuthService {
     currentUser.value = null;
   }
 
+  static Future<List<Map<String, dynamic>>> fetchWorkers() async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final response = await http.get(
+      Uri.parse('$_baseUrl/users'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+
+    final List<dynamic> users = jsonDecode(response.body) as List<dynamic>;
+    return users.cast<Map<String, dynamic>>();
+  }
+
   static String _extractError(http.Response response) {
     try {
       final data = jsonDecode(response.body) as Map<String, dynamic>;

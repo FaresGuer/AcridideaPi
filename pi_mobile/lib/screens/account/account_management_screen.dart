@@ -66,10 +66,19 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
                   _buildAnimatedItem(6, _buildSectionLabel('GENERAL')),
                   SizedBox(height: 12),
                   _buildAnimatedItem(7, _buildGeneralSection()),
+                  if (user?.role == 'ADMIN') ...[
+                    SizedBox(height: 24),
+                    _buildAnimatedItem(8, _buildSectionLabel('WORKERS MANAGEMENT')),
+                    SizedBox(height: 12),
+                    _buildAnimatedItem(9, _buildWorkersSection()),
+                    SizedBox(height: 24),
+                    _buildAnimatedItem(10, _buildLogoutButton()),
+                  ] else ...[
+                    SizedBox(height: 24),
+                    _buildAnimatedItem(8, _buildLogoutButton()),
+                  ],
                   SizedBox(height: 32),
-                  _buildAnimatedItem(8, _buildLogoutButton()),
-                  SizedBox(height: 32),
-                  _buildAnimatedItem(9, Center(
+                  _buildAnimatedItem(11, Center(
                     child: Text(
                       'Version 2.4.0 (Build 394)',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
@@ -414,6 +423,136 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildWorkersSection() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: AuthService.fetchWorkers(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Container(
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Text(
+              'Error loading workers: ${snapshot.error}',
+              style: TextStyle(color: Colors.red, fontSize: 14),
+            ),
+          );
+        }
+
+        final workers = snapshot.data ?? [];
+        final farmers = workers.where((w) => w['role'] == 'FARMER').toList();
+
+        if (farmers.isEmpty) {
+          return Container(
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text('No farmers found', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+          );
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: List.generate(
+              farmers.length,
+              (index) {
+                final worker = farmers[index];
+                final isLast = index == farmers.length - 1;
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor: Color(0xFFC8E6C9),
+                            child: Text(
+                              worker['full_name']?.substring(0, 1).toUpperCase() ?? '?',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  worker['full_name'] ?? 'Unknown',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+                                ),
+                                Text(
+                                  worker['email'] ?? 'No email',
+                                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!isLast) Divider(height: 1, indent: 64),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
