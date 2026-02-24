@@ -4,6 +4,7 @@ class AuthUser {
   final String fullName;
   final String role;
   final bool isActive;
+  final bool roleSelected;
 
   const AuthUser({
     required this.id,
@@ -11,6 +12,7 @@ class AuthUser {
     required this.fullName,
     required this.role,
     required this.isActive,
+    required this.roleSelected,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class AuthUser {
       fullName: json['full_name'] as String,
       role: json['role'] as String,
       isActive: json['is_active'] as bool,
+      roleSelected: json['role_selected'] as bool? ?? false,
     );
   }
 }

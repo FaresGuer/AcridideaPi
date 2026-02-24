@@ -102,9 +102,13 @@ async def update_current_user(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Update current user's full_name only."""
-    # User can only update their own full_name
-    update_data = UserUpdate(full_name=user_update.full_name)
+    """Update current user's profile (limited fields)."""
+    # Allow updating name and role selection only
+    update_data = UserUpdate(
+        full_name=user_update.full_name,
+        role=user_update.role,
+        role_selected=user_update.role_selected,
+    )
     updated_user = update_user(db, current_user.id, update_data)
     return updated_user
 

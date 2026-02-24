@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../app_colors.dart';
+import '../services/auth_service.dart';
+import 'auth/role_selection_dialog.dart';
 import 'home/dashboard_screen.dart';
 import 'controls/device_controls_screen.dart';
 import 'food/food_distribution_screen.dart';
@@ -21,6 +22,40 @@ class _MainNavigationState extends State<MainNavigation> {
     FoodDistributionScreen(),
     AccountManagementScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen for login events and show role selection dialog if needed
+    AuthService.currentUser.addListener(_handleAuthStateChange);
+    // Schedule the dialog to show after the frame is rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showRoleSelectionDialogIfNeeded();
+    });
+  }
+
+  void _handleAuthStateChange() {
+    // Show dialog again if a new user logs in without having selected role
+    _showRoleSelectionDialogIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUser.removeListener(_handleAuthStateChange);
+    super.dispose();
+  }
+
+  void _showRoleSelectionDialogIfNeeded() {
+    final currentUser = AuthService.currentUser.value;
+    // Only show dialog if user exists and hasn't selected role yet
+    if (currentUser != null && !currentUser.roleSelected) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => RoleSelectionDialog(),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

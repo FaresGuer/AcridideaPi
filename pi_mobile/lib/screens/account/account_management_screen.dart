@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../app_colors.dart';
 import '../../models/auth_user.dart';
 import '../../services/auth_service.dart';
+import '../auth/login_screen.dart';
 
 class AccountManagementScreen extends StatefulWidget {
   const AccountManagementScreen({Key? key}) : super(key: key);
@@ -16,25 +17,25 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       id: 1,
       name: 'John Doe',
       email: 'john@example.com',
-      role: 'Manager',
+      role: 'Farmer',
       status: 'Active',
-      joinDate: 'Jan 15, 2024',
+      
     ),
     Worker(
       id: 2,
       name: 'Sarah Smith',
       email: 'sarah@example.com',
-      role: 'Technician',
+      role: 'Farmer',
       status: 'Active',
-      joinDate: 'Feb 20, 2024',
+      
     ),
     Worker(
       id: 3,
       name: 'Mike Johnson',
       email: 'mike@example.com',
-      role: 'Operator',
+      role: 'Farmer',
       status: 'Inactive',
-      joinDate: 'Dec 10, 2023',
+      
     ),
   ];
 
@@ -245,6 +246,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
               onPressed: () async {
                 await AuthService.logout();
+                if (!mounted) {
+                  return;
+                }
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => LoginScreen()),
+                  (route) => false,
+                );
               },
               child: Text('Logout'),
             ),
@@ -296,7 +304,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   email: emailController.text,
                   role: 'Operator',
                   status: 'Pending',
-                  joinDate: 'Today',
+                  
                 ));
               });
               Navigator.pop(context);
@@ -384,7 +392,7 @@ class Worker {
   final String email;
   final String role;
   final String status;
-  final String joinDate;
+  
 
   Worker({
     required this.id,
@@ -392,7 +400,7 @@ class Worker {
     required this.email,
     required this.role,
     required this.status,
-    required this.joinDate,
+    
   });
 }
 

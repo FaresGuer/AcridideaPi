@@ -22,6 +22,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     role: Optional[str] = None
     is_active: Optional[bool] = None
+    role_selected: Optional[bool] = None
 
     @field_validator("role")
     @classmethod
@@ -38,6 +39,7 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     is_active: bool
+    role_selected: bool
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -76,6 +76,31 @@ class AuthService {
     }
   }
 
+  static Future<void> updateUserRole(String newRole) async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final response = await http.put(
+      Uri.parse('$_baseUrl/users/me'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'role': newRole,
+        'role_selected': true,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+
+    final updatedJson = jsonDecode(response.body) as Map<String, dynamic>;
+    currentUser.value = AuthUser.fromJson(updatedJson);
+  }
+
   static Future<void> logout() async {
     _token = null;
     currentUser.value = null;
