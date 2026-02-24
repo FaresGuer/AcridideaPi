@@ -6,7 +6,7 @@ import 'food/food_screen_v2.dart';
 import 'account/account_management_screen.dart';
 
 class MainNavigation extends StatefulWidget {
-  const MainNavigation({Key? key}) : super(key: key);
+  const MainNavigation({super.key});
 
   @override
   State<MainNavigation> createState() => _MainNavigationState();
@@ -27,7 +27,7 @@ class _MainNavigationState extends State<MainNavigation> {
     return Scaffold(
       extendBody: true,
       body: screens[_selectedIndex],
-      bottomNavigationBar: Container(
+      bottomNavigationBar: SizedBox(
         height: 100, // Taller to accommodate the curve and FAB
         child: Stack(
           alignment: Alignment.bottomCenter,

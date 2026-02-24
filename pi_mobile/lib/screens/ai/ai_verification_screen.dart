@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../app_colors.dart';
 
 class AIVerificationScreen extends StatefulWidget {
-  const AIVerificationScreen({Key? key}) : super(key: key);
+  const AIVerificationScreen({super.key});
 
   @override
   State<AIVerificationScreen> createState() => _AIVerificationScreenState();

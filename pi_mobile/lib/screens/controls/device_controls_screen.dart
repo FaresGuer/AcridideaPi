@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 import '../../app_colors.dart';
 
 class DeviceControlsScreen extends StatefulWidget {
-  const DeviceControlsScreen({Key? key}) : super(key: key);
+  const DeviceControlsScreen({super.key});
 
   @override
   State<DeviceControlsScreen> createState() => _DeviceControlsScreenState();

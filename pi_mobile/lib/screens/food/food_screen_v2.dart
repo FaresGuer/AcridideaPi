@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../app_colors.dart';
 
 class FoodDistributionScreen extends StatefulWidget {
-  const FoodDistributionScreen({Key? key}) : super(key: key);
+  const FoodDistributionScreen({super.key});
 
   @override
   State<FoodDistributionScreen> createState() => _FoodDistributionScreenState();
@@ -100,9 +100,9 @@ class _FoodDistributionScreenState extends State<FoodDistributionScreen> {
                 child: FloatingActionButton(
                   onPressed: () {},
                   backgroundColor: AppColors.primary,
-                  child: Icon(Icons.add, color: Colors.white),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 4,
+                  child: Icon(Icons.add, color: Colors.white),
                 ),
               ),
             ],
@@ -249,8 +249,9 @@ class _FoodDistributionScreenState extends State<FoodDistributionScreen> {
         count = dayData.length.toString();
         // Simple logic to just show first item amount or sum if parsed (demo simplification)
         // Let's just manually map for demo consistency
-        if (_selectedDate.day == 23) total = "800g";
-        else if (_selectedDate.day == 20) total = "900g";
+        if (_selectedDate.day == 23) {
+          total = "800g";
+        } else if (_selectedDate.day == 20) total = "900g";
         else if (_selectedDate.day == 21) total = "550g";
         else if (_selectedDate.day == 22) total = "700g";
         else if (_selectedDate.day == 24) total = "650g";

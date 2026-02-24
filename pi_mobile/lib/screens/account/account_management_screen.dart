@@ -4,7 +4,7 @@ import '../../models/auth_user.dart';
 import '../../services/auth_service.dart';
 
 class AccountManagementScreen extends StatefulWidget {
-  const AccountManagementScreen({Key? key}) : super(key: key);
+  const AccountManagementScreen({super.key});
 
   @override
   State<AccountManagementScreen> createState() => _AccountManagementScreenState();
@@ -248,8 +248,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
             iconColor: Color(0xFFD32F2F),
             iconBg: Color(0xFFFFEBEE),
             title: 'Temp Thresholds',
-            subtitle: 'Alerts above 30°C',
-            onTap: () => _showSliderDialog('Temperature Threshold', '°C', 20, 40, 30),
+            subtitle: 'Alerts above 30ï¿½C',
+            onTap: () => _showSliderDialog('Temperature Threshold', 'ï¿½C', 20, 40, 30),
           ),
           Divider(height: 1, indent: 64),
           _buildSettingsTile(
@@ -270,7 +270,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
             trailing: Switch(
               value: _pushNotifications,
               onChanged: (val) => setState(() => _pushNotifications = val),
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
             ),
           ),
         ],
@@ -311,7 +311,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
             trailing: Switch(
               value: _twoFactorEnabled,
               onChanged: (val) => setState(() => _twoFactorEnabled = val),
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
             ),
           ),
         ],
@@ -517,11 +517,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context),
-            child: Text('Français'),
+            child: Text('Franï¿½ais'),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context),
-            child: Text('Español'),
+            child: Text('Espaï¿½ol'),
           ),
         ],
       ),
@@ -542,7 +542,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
   }
 
   void _showSliderDialog(String title, String unit, double min, double max, double current) {
-    double _tempValue = current;
+    double tempValue = current;
     showDialog(
       context: context,
       builder: (context) {
@@ -555,12 +555,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
                 children: [
                   Text(' ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                   Slider(
-                    value: _tempValue,
+                    value: tempValue,
                     min: min,
                     max: max,
                     divisions: 100,
                     activeColor: AppColors.primary,
-                    onChanged: (val) => setState(() => _tempValue = val),
+                    onChanged: (val) => setState(() => tempValue = val),
                   ),
                 ],
               ),
