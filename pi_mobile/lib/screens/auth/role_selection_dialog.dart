@@ -3,7 +3,7 @@ import '../../app_colors.dart';
 import '../../services/auth_service.dart';
 
 class RoleSelectionDialog extends StatefulWidget {
-  const RoleSelectionDialog({Key? key}) : super(key: key);
+  const RoleSelectionDialog({super.key});
 
   @override
   State<RoleSelectionDialog> createState() => _RoleSelectionDialogState();

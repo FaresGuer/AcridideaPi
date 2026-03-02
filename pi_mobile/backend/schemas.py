@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime
 
 
 class UserCreate(BaseModel):
@@ -40,6 +41,78 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     role_selected: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ContainerCreate(BaseModel):
+    """Schema for creating a new container."""
+    name: str
+    latitude: float
+    longitude: float
+
+
+class ContainerUpdate(BaseModel):
+    """Schema for updating a container."""
+    name: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
+class ContainerResponse(BaseModel):
+    """Schema for container response."""
+    id: int
+    name: str
+    created_by: int
+    latitude: float
+    longitude: float
+    created_at: datetime
+    updated_at: datetime
+    creator: UserResponse
+    workers: List[UserResponse]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ContainerSimple(BaseModel):
+    """Schema for container response (simplified, no nested users)."""
+    id: int
+    name: str
+    created_by: int
+    latitude: float
+    longitude: float
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkerInvitationCreate(BaseModel):
+    """Schema for sending a worker invitation by email."""
+    email: EmailStr
+
+
+class WorkerInvitationRespond(BaseModel):
+    """Schema for worker response to invitation."""
+    action: str
+
+    @field_validator("action")
+    @classmethod
+    def validate_action(cls, v):
+        if v not in ["ACCEPT", "REJECT"]:
+            raise ValueError("Action must be ACCEPT or REJECT")
+        return v
+
+
+class WorkerInvitationResponse(BaseModel):
+    """Schema for worker invitation response."""
+    id: int
+    admin_id: int
+    worker_id: int
+    status: str
+    created_at: datetime
+    responded_at: Optional[datetime] = None
+    admin: UserResponse
+    worker: UserResponse
 
     model_config = ConfigDict(from_attributes=True)
 

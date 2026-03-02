@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../app_colors.dart';
 import '../../models/auth_user.dart';
+import '../../models/container.dart' as app_models;
 import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
 
@@ -11,11 +14,15 @@ class AccountManagementScreen extends StatefulWidget {
   State<AccountManagementScreen> createState() => _AccountManagementScreenState();
 }
 
-class _AccountManagementScreenState extends State<AccountManagementScreen> with SingleTickerProviderStateMixin {
+class _AccountManagementScreenState extends State<AccountManagementScreen> with TickerProviderStateMixin {
   bool _pushNotifications = true;
   bool _twoFactorEnabled = true;
   bool _isLoading = false;
+  late bool _isAdminView;
   late AnimationController _controller;
+  late TabController _tabController;
+  late Future<List<Map<String, dynamic>>> _workersFuture;
+  late Future<List<app_models.Container>> _containersFuture;
 
   @override
   void initState() {
@@ -24,11 +31,41 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
       duration: const Duration(milliseconds: 800),
       vsync: this,
     )..forward();
+    
+    _isAdminView = AuthService.currentUser.value?.role == 'ADMIN';
+    _tabController = TabController(length: _isAdminView ? 3 : 1, vsync: this);
+    _initializeAdminFutures();
+  }
+
+  void _initializeAdminFutures() {
+    if (!_isAdminView) {
+      _workersFuture = Future.value([]);
+      _containersFuture = Future.value([]);
+      return;
+    }
+
+    _workersFuture = AuthService.fetchWorkers();
+    _containersFuture = AuthService.fetchContainers();
+  }
+
+  void _refreshWorkers() {
+    if (!mounted) return;
+    setState(() {
+      _workersFuture = AuthService.fetchWorkers();
+    });
+  }
+
+  void _refreshContainers() {
+    if (!mounted) return;
+    setState(() {
+      _containersFuture = AuthService.fetchContainers();
+    });
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -37,6 +74,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
     return ValueListenableBuilder<AuthUser?>(
       valueListenable: AuthService.currentUser,
       builder: (context, user, child) {
+        final isAdmin = _isAdminView;
+        
         return Scaffold(
           body: Container(
             decoration: BoxDecoration(
@@ -48,43 +87,85 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
               ),
             ),
             child: SafeArea(
-              child: ListView(
-                padding: EdgeInsets.all(24),
+              child: Column(
                 children: [
-                  _buildAnimatedItem(0, _buildHeader()),
-                  SizedBox(height: 24),
-                  _buildAnimatedItem(1, _buildProfileCard(user)),
-                  SizedBox(height: 24),
-                  _buildAnimatedItem(2, _buildSectionLabel('ENVIRONMENTAL ALERTS')),
-                  SizedBox(height: 12),
-                  _buildAnimatedItem(3, _buildEnvironmentalSection()),
-                  SizedBox(height: 24),
-                  _buildAnimatedItem(4, _buildSectionLabel('SECURITY')),
-                  SizedBox(height: 12),
-                  _buildAnimatedItem(5, _buildSecuritySection()),
-                  SizedBox(height: 24),
-                  _buildAnimatedItem(6, _buildSectionLabel('GENERAL')),
-                  SizedBox(height: 12),
-                  _buildAnimatedItem(7, _buildGeneralSection()),
-                  if (user?.role == 'ADMIN') ...[
-                    SizedBox(height: 24),
-                    _buildAnimatedItem(8, _buildSectionLabel('WORKERS MANAGEMENT')),
-                    SizedBox(height: 12),
-                    _buildAnimatedItem(9, _buildWorkersSection()),
-                    SizedBox(height: 24),
-                    _buildAnimatedItem(10, _buildLogoutButton()),
-                  ] else ...[
-                    SizedBox(height: 24),
-                    _buildAnimatedItem(8, _buildLogoutButton()),
-                  ],
-                  SizedBox(height: 32),
-                  _buildAnimatedItem(11, Center(
-                    child: Text(
-                      'Version 2.4.0 (Build 394)',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  // Header and Profile Card
+                  SingleChildScrollView(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          _buildAnimatedItem(0, _buildHeader()),
+                          SizedBox(height: 24),
+                          _buildAnimatedItem(1, _buildProfileCard(user)),
+                        ],
+                      ),
                     ),
-                  )),
-                  SizedBox(height: 100),
+                  ),
+                  // Tab Bar
+                  Container(
+                    color: Colors.white,
+                    child: TabBar(
+                      controller: _tabController,
+                      indicatorColor: AppColors.primary,
+                      labelColor: AppColors.primary,
+                      unselectedLabelColor: AppColors.textSecondary,
+                      tabs: [
+                        Tab(text: 'Settings'),
+                        if (isAdmin) Tab(text: 'Workers'),
+                        if (isAdmin) Tab(text: 'Containers'),
+                      ],
+                    ),
+                  ),
+                  // Tab Content
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        // Settings Tab
+                        SingleChildScrollView(
+                          padding: EdgeInsets.all(24),
+                          child: Column(
+                            children: [
+                              _buildAnimatedItem(2, _buildSectionLabel('ENVIRONMENTAL ALERTS')),
+                              SizedBox(height: 12),
+                              _buildAnimatedItem(3, _buildEnvironmentalSection()),
+                              SizedBox(height: 24),
+                              _buildAnimatedItem(4, _buildSectionLabel('SECURITY')),
+                              SizedBox(height: 12),
+                              _buildAnimatedItem(5, _buildSecuritySection()),
+                              SizedBox(height: 24),
+                              _buildAnimatedItem(6, _buildSectionLabel('GENERAL')),
+                              SizedBox(height: 12),
+                              _buildAnimatedItem(7, _buildGeneralSection()),
+                              SizedBox(height: 32),
+                              _buildAnimatedItem(8, _buildLogoutButton()),
+                              SizedBox(height: 32),
+                              _buildAnimatedItem(9, Center(
+                                child: Text(
+                                  'Version 2.4.0 (Build 394)',
+                                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                ),
+                              )),
+                              SizedBox(height: 40),
+                            ],
+                          ),
+                        ),
+                        // Workers Tab (Admin only)
+                        if (isAdmin)
+                          Padding(
+                            padding: EdgeInsets.all(24),
+                            child: _buildWorkersSection(),
+                          ),
+                        // Containers Tab (Admin only)
+                        if (isAdmin)
+                          Padding(
+                            padding: EdgeInsets.all(24),
+                            child: _buildContainersListSection(),
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -427,147 +508,171 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
   }
 
   Widget _buildWorkersSection() {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: AuthService.fetchWorkers(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Container(
-            padding: EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            ),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return Container(
-            padding: EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Text(
-              'Error loading workers: ${snapshot.error}',
-              style: TextStyle(color: Colors.red, fontSize: 14),
-            ),
-          );
-        }
-
-        final workers = snapshot.data ?? [];
-        final farmers = workers.where((w) => w['role'] == 'FARMER').toList();
-
-        if (farmers.isEmpty) {
-          return Container(
-            padding: EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text('No farmers found', style: TextStyle(color: AppColors.textSecondary)),
-            ),
-          );
-        }
-
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                blurRadius: 10,
-                offset: Offset(0, 4),
-              ),
-            ],
+    return Column(
+      children: [
+        // Add Worker Button
+        ElevatedButton.icon(
+          onPressed: _showAddWorkerDialog,
+          icon: Icon(Icons.add),
+          label: Text('Add Worker'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          child: Column(
-            children: List.generate(
-              farmers.length,
-              (index) {
-                final worker = farmers[index];
-                final isLast = index == farmers.length - 1;
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 24,
-                            backgroundColor: Color(0xFFC8E6C9),
-                            child: Text(
-                              worker['full_name']?.substring(0, 1).toUpperCase() ?? '?',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                          ),
-                          SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  worker['full_name'] ?? 'Unknown',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
-                                ),
-                                Text(
-                                  worker['email'] ?? 'No email',
-                                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+        ),
+        SizedBox(height: 24),
+        // Workers List
+        FutureBuilder<List<Map<String, dynamic>>>(
+          future: _workersFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                padding: EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
                     ),
-                    if (!isLast) Divider(height: 1, indent: 64),
                   ],
-                );
-              },
-            ),
-          ),
-        );
-      },
+                ),
+                child: Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Container(
+                padding: EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  'Error loading workers: ${snapshot.error}',
+                  style: TextStyle(color: Colors.red, fontSize: 14),
+                ),
+              );
+            }
+
+            final workers = snapshot.data ?? [];
+            final farmers = workers.where((w) => w['role'] == 'FARMER').toList();
+
+            if (farmers.isEmpty) {
+              return Container(
+                padding: EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text('No farmers found', style: TextStyle(color: AppColors.textSecondary)),
+                ),
+              );
+            }
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: List.generate(
+                  farmers.length,
+                  (index) {
+                    final worker = farmers[index];
+                    final isLast = index == farmers.length - 1;
+                    return Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Color(0xFFC8E6C9),
+                                child: Text(
+                                  worker['full_name']?.substring(0, 1).toUpperCase() ?? '?',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ),
+                              SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      worker['full_name'] ?? 'Unknown',
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+                                    ),
+                                    Text(
+                                      worker['email'] ?? 'No email',
+                                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (!isLast) Divider(height: 1, indent: 64),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
   Widget _buildLogoutButton() {
     return InkWell(
       onTap: () async {
+        if (_isLoading) return;
+
         setState(() => _isLoading = true);
-        await Future.delayed(Duration(seconds: 1)); // Mock delay
-        await AuthService.logout();
-        if (mounted) {
-          setState(() => _isLoading = false);
+        try {
+          await AuthService.logout();
+          if (!mounted) return;
+
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const LoginScreen()),
             (route) => false,
           );
+        } finally {
+          if (mounted) {
+            setState(() => _isLoading = false);
+          }
         }
       },
       borderRadius: BorderRadius.circular(16),
@@ -607,6 +712,148 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
   }
 
   // Dialog Helpers
+  Widget _buildContainersListSection() {
+    return Column(
+      children: [
+        // Add Container Button
+        ElevatedButton.icon(
+          onPressed: _showAddContainerDialog,
+          icon: Icon(Icons.add),
+          label: Text('Add Container'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        SizedBox(height: 24),
+        // Containers List
+        FutureBuilder<List<app_models.Container>>(
+          future: _containersFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                padding: EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Container(
+                padding: EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  'Error loading containers: ${snapshot.error}',
+                  style: TextStyle(color: Colors.red, fontSize: 14),
+                ),
+              );
+            }
+
+            final containers = snapshot.data ?? [];
+
+            if (containers.isEmpty) {
+              return Container(
+                padding: EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text('No containers found', style: TextStyle(color: AppColors.textSecondary)),
+                ),
+              );
+            }
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: List.generate(
+                  containers.length,
+                  (index) {
+                    final container = containers[index];
+                    final isLast = index == containers.length - 1;
+                    return Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Color(0xFFBBDEFB),
+                                child: Icon(Icons.location_on, color: AppColors.primary),
+                              ),
+                              SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      container.name,
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+                                    ),
+                                    Text(
+                                      'Lat: ${container.latitude.toStringAsFixed(4)}, Lng: ${container.longitude.toStringAsFixed(4)}',
+                                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (!isLast) Divider(height: 1, indent: 64),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   void _showEditProfileDialog() {
     showDialog(
       context: context,
@@ -720,4 +967,227 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
       },
     );
   }
+
+  Future<void> _showAddWorkerDialog() async {
+    final emailController = TextEditingController();
+
+    final wasAdded = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Add Worker'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Enter worker email address:', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+            SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                hintText: 'worker@locust.farm',
+                prefixIcon: Icon(Icons.email),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final email = emailController.text.trim();
+              if (email.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please enter an email address')),
+                );
+                return;
+              }
+              
+              try {
+                await AuthService.sendWorkerInvitationByEmail(email: email);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Invitation sent to $email')),
+                );
+                Navigator.pop(context, true);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: ${e.toString()}')),
+                );
+              }
+            },
+            child: Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    if (wasAdded == true) {
+      _refreshWorkers();
+    }
+  }
+
+  Future<void> _showAddContainerDialog() async {
+    final wasCreated = await showDialog<bool>(
+      context: context,
+      builder: (context) => _AddContainerMapDialog(),
+    );
+
+    if (wasCreated == true) {
+      _refreshContainers();
+    }
+  }
 }
+
+class _AddContainerMapDialog extends StatefulWidget {
+  @override
+  State<_AddContainerMapDialog> createState() => _AddContainerMapDialogState();
+}
+
+class _AddContainerMapDialogState extends State<_AddContainerMapDialog> {
+  final nameController = TextEditingController();
+  double? selectedLat;
+  double? selectedLng;
+  final MapController mapController = MapController();
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Add Container'),
+      content: SizedBox(
+        width: 400,
+        height: 500,
+        child: Column(
+          children: [
+            // Container Name Input
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'Container Name',
+                hintText: 'e.g., Container A',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            SizedBox(height: 12),
+            // Map
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: FlutterMap(
+                  mapController: mapController,
+                  options: MapOptions(
+                    initialCenter: LatLng(36.8065, 10.1815), // Default to Tunis, Tunisia
+                    initialZoom: 13.0,
+                    onTap: (tapPos, latlng) {
+                      setState(() {
+                        selectedLat = latlng.latitude;
+                        selectedLng = latlng.longitude;
+                      });
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                      subdomains: const ['a', 'b', 'c'],
+                      userAgentPackageName: 'com.example.flutter_application_1',
+                    ),
+                    if (selectedLat != null && selectedLng != null)
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: LatLng(selectedLat!, selectedLng!),
+                            width: 40,
+                            height: 40,
+                            child: Icon(
+                              Icons.location_on,
+                              color: Colors.red,
+                              size: 40,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: 12),
+            // Selected Coordinates Display
+            if (selectedLat != null && selectedLng != null)
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Selected Location:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Lat: ${selectedLat!.toStringAsFixed(6)}',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    Text(
+                      'Lng: ${selectedLng!.toStringAsFixed(6)}',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Tap on the map to select a location',
+                  style: TextStyle(fontSize: 12, color: Colors.orange[700]),
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel')),
+        ElevatedButton(
+          onPressed: selectedLat == null || selectedLng == null || nameController.text.isEmpty
+              ? null
+              : () async {
+                  final name = nameController.text.trim();
+                  try {
+                    await AuthService.createContainer(
+                      name: name,
+                      latitude: selectedLat!,
+                      longitude: selectedLng!,
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Container "$name" created successfully')),
+                    );
+                    Navigator.pop(context, true);
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: ${e.toString()}')),
+                    );
+                  }
+                },
+          child: Text('Create'),
+        ),
+      ],
+    );
+  }
+}
+

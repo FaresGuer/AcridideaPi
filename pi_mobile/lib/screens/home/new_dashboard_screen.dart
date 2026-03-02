@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import '../../app_colors.dart';
+import '../../services/auth_service.dart';
+import '../notifications/notifications_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -314,35 +315,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Icon(Icons.notifications_outlined, color: Colors.black, size: 28),
-              Positioned(
-                right: -2,
-                top: -2,
-                child: Container(
-                  padding: EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppColors.liveRed,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
-                  child: Text(
-                    '3',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _buildNotificationBell(),
         ],
       ),
     );
+  }
+
+  Widget _buildNotificationBell() {
+    final user = AuthService.currentUser.value;
+
+    return FutureBuilder<int>(
+      future: _fetchPendingInvitationCount(user?.role),
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+
+        return InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            );
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: EdgeInsets.all(4),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(Icons.notifications_outlined, color: Colors.black, size: 28),
+                if (count > 0)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
+                      padding: EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppColors.liveRed,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      child: Text(
+                        count > 9 ? '9+' : '$count',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<int> _fetchPendingInvitationCount(String? role) async {
+    if (role != 'FARMER') {
+      return 0;
+    }
+
+    try {
+      final invitations = await AuthService.fetchReceivedInvitations();
+      return invitations.where((inv) => inv.status == 'PENDING').length;
+    } catch (_) {
+      return 0;
+    }
   }
 
   Widget _buildSystemStatusCard() {
