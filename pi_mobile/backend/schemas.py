@@ -20,10 +20,12 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     """Schema for updating user information."""
+    email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     role: Optional[str] = None
     is_active: Optional[bool] = None
     role_selected: Optional[bool] = None
+    two_factor_enabled: Optional[bool] = None
 
     @field_validator("role")
     @classmethod
@@ -41,6 +43,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     role_selected: bool
+    two_factor_enabled: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -67,9 +70,10 @@ class ContainerResponse(BaseModel):
     latitude: float
     longitude: float
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
     creator: UserResponse
     workers: List[UserResponse]
+    data: Optional['ContainerDataResponse'] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -82,6 +86,60 @@ class ContainerSimple(BaseModel):
     latitude: float
     longitude: float
     created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ContainerDataUpdate(BaseModel):
+    """Schema for updating container data."""
+    temperature: Optional[float] = None
+    humidity: Optional[float] = None
+    light_level: Optional[float] = None
+    heater_status: Optional[bool] = None
+    fan_status: Optional[bool] = None
+    light_status: Optional[bool] = None
+    humidifier_status: Optional[bool] = None
+    target_temperature: Optional[float] = None
+    target_humidity: Optional[float] = None
+    target_light_level: Optional[float] = None
+
+
+class ContainerDataResponse(BaseModel):
+    """Schema for container data response."""
+    id: int
+    container_id: int
+    temperature: Optional[float] = None
+    humidity: Optional[float] = None
+    light_level: Optional[float] = None
+    heater_status: bool
+    fan_status: bool
+    light_status: bool
+    humidifier_status: bool
+    target_temperature: Optional[float] = None
+    target_humidity: Optional[float] = None
+    target_light_level: Optional[float] = None
+    last_updated: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FeedingScheduleCreate(BaseModel):
+    feeding_at: datetime
+    amount: float
+
+
+class FeedingScheduleUpdate(BaseModel):
+    feeding_at: Optional[datetime] = None
+    amount: Optional[float] = None
+
+
+class FeedingScheduleResponse(BaseModel):
+    id: int
+    container_id: int
+    feeding_at: datetime
+    amount: float
+    created_at: datetime
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -119,10 +177,40 @@ class WorkerInvitationResponse(BaseModel):
 
 class Token(BaseModel):
     """Schema for token response."""
-    access_token: str
+    access_token: Optional[str] = None
     token_type: str
+    requires_two_factor: bool = False
+    verification_token: Optional[str] = None
+    message: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    """Schema for changing current user's password."""
+    current_password: str
+    new_password: str
+
+
+class TwoFactorVerifyRequest(BaseModel):
+    """Schema for completing 2FA challenge."""
+    verification_token: str
+    code: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Schema for requesting a password reset code."""
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Schema for resetting password with verification code."""
+    reset_token: str
+    code: str
+    new_password: str
 
 
 class TokenData(BaseModel):
     """Schema for token data."""
     email: Optional[str] = None
+
+
+ContainerResponse.model_rebuild()

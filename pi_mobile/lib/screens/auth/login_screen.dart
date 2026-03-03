@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_colors.dart';
-import '../main_navigation.dart';
 import 'registration_screen.dart';
+import 'forgot_password_screen.dart';
 import '../../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   bool _rememberMe = false;
   bool _isSubmitting = false;
+  bool _showPassword = false;
 
   @override
   void initState() {
@@ -33,6 +35,22 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         .animate(CurvedAnimation(
             parent: _animationController, curve: Curves.easeOutBack));
     _animationController.forward();
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString('remembered_email');
+    final savedPassword = prefs.getString('remembered_password');
+    final rememberMe = prefs.getBool('remember_me') ?? false;
+
+    if (mounted && rememberMe && savedEmail != null && savedPassword != null) {
+      setState(() {
+        _emailController.text = savedEmail;
+        _passwordController.text = savedPassword;
+        _rememberMe = true;
+      });
+    }
   }
 
   @override
@@ -158,11 +176,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               decoration: InputDecoration(
                                 hintText: 'Enter password',
                                 prefixIcon: Icon(Icons.lock_outline, color: AppColors.primary),
-                                suffixIcon: Icon(Icons.visibility_off_outlined, color: AppColors.textHint),
+                                suffixIcon: GestureDetector(
+                                  onTap: () {
+                                    setState(() => _showPassword = !_showPassword);
+                                  },
+                                  child: Icon(
+                                    _showPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                    color: AppColors.textHint,
+                                  ),
+                                ),
                                 filled: true,
                                 fillColor: Colors.white,
                               ),
-                              obscureText: true,
+                              obscureText: !_showPassword,
                             ),
                           ),
                           SizedBox(height: 16),
@@ -177,7 +203,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                     scale: 1.1,
                                     child: Checkbox(
                                       value: _rememberMe,
-                                      onChanged: (value) {
+                                      onChanged: (value) async {
+                                        final prefs = await SharedPreferences.getInstance();
+                                        if (value ?? false) {
+                                          // Save credentials
+                                          await prefs.setString('remembered_email', _emailController.text);
+                                          await prefs.setString('remembered_password', _passwordController.text);
+                                          await prefs.setBool('remember_me', true);
+                                        } else {
+                                          // Clear saved credentials
+                                          await prefs.remove('remembered_email');
+                                          await prefs.remove('remembered_password');
+                                          await prefs.setBool('remember_me', false);
+                                        }
                                         setState(() => _rememberMe = value ?? false);
                                       },
                                       activeColor: AppColors.primary,
@@ -188,7 +226,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 ],
                               ),
                               TextButton(
-                                onPressed: () {},
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => ForgotPasswordScreen()),
+                                  );
+                                },
                                 child: Text('Forgot Password?', style: TextStyle(fontWeight: FontWeight.w600)),
                               ),
                             ],
@@ -260,22 +303,121 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     setState(() => _isSubmitting = true);
     try {
-      await AuthService.login(email: email, password: password);
-      if (!mounted) {
-        return;
+      final loginResult = await AuthService.login(email: email, password: password);
+
+      if (loginResult.requiresTwoFactor) {
+        final verificationToken = loginResult.verificationToken;
+        if (verificationToken == null || verificationToken.isEmpty) {
+          throw Exception('Missing verification session');
+        }
+
+        if (mounted && loginResult.message != null && loginResult.message!.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(loginResult.message!)),
+          );
+        }
+
+        final verified = await _showTwoFactorDialog(verificationToken);
+        if (!verified) {
+          return;
+        }
       }
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => MainNavigation()),
-        (route) => false,
-      );
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
-    } finally {
+
+      // Login successful - wait a moment for ValueNotifier to propagate
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
+      // Don't navigate manually - main.dart's ValueListenableBuilder will handle routing
+    } catch (error) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
     }
+  }
+
+  Future<bool> _showTwoFactorDialog(String verificationToken) async {
+    final codeController = TextEditingController();
+    bool isVerifying = false;
+
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text('Two-Factor Verification'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Enter the 6-digit code sent to your email.',
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              ),
+              SizedBox(height: 12),
+              TextField(
+                controller: codeController,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: InputDecoration(
+                  labelText: 'Verification Code',
+                  counterText: '',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isVerifying ? null : () => Navigator.pop(dialogContext, false),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isVerifying
+                  ? null
+                  : () async {
+                      final code = codeController.text.trim();
+                      if (code.length != 6) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Enter a valid 6-digit code')),
+                        );
+                        return;
+                      }
+
+                      setDialogState(() => isVerifying = true);
+                      try {
+                        await AuthService.verifyTwoFactorLogin(
+                          verificationToken: verificationToken,
+                          code: code,
+                        );
+                        if (mounted) {
+                          Navigator.pop(dialogContext, true);
+                        }
+                      } catch (error) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(error.toString())),
+                          );
+                        }
+                      } finally {
+                        if (mounted) {
+                          setDialogState(() => isVerifying = false);
+                        }
+                      }
+                    },
+              child: isVerifying
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text('Verify'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return verified ?? false;
   }
 }

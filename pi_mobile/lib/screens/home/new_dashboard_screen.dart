@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app_colors.dart';
 import '../../services/auth_service.dart';
+import '../../services/container_service.dart';
 import '../notifications/notifications_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -11,11 +12,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  // Control States
-  bool _ventilationActive = true;
-  bool _humidifierActive = false;
-  bool _heatingActive = false;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -47,8 +43,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _buildLiveCameraCard(),
                       SizedBox(height: 24),
                       _buildEnvironmentSection(),
-                      SizedBox(height: 24),
-                      _buildActiveControlsSection(),
                       SizedBox(height: 24),
                       _buildAlertsSection(),
                       SizedBox(height: 80), // Bottom spacer for FAB
@@ -299,18 +293,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               Text(
-                'Greenhouse A',
+                ContainerService.selectedContainer.value?.name ?? 'Container',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                   color: Colors.black,
-                  shadows: [
-                    Shadow(
-                      color: Color(0xFF39FF14).withOpacity(0.25),
-                      blurRadius: 15,
-                      offset: Offset(0, 0),
-                    ),
-                  ],
                 ),
               ),
             ],
@@ -836,139 +823,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildActiveControlsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Active Controls',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        SizedBox(height: 16),
-        _buildControlTile(
-          icon: Icons.wind_power,
-          label: 'Ventilation',
-          subLabel: 'Auto-cycling enabled',
-          isActive: _ventilationActive,
-          onChanged: (val) => setState(() => _ventilationActive = val),
-        ),
-        SizedBox(height: 12),
-        _buildControlTile(
-          icon: Icons.water_drop_outlined,
-          label: 'Humidifier',
-          subLabel: 'Target: 65%',
-          isActive: _humidifierActive,
-          onChanged: (val) => setState(() => _humidifierActive = val),
-        ),
-        SizedBox(height: 12),
-        _buildControlTile(
-          icon: Icons.local_fire_department_outlined,
-          label: 'Heating',
-          subLabel: 'Idle',
-          isActive: _heatingActive,
-          onChanged: (val) => setState(() => _heatingActive = val),
-        ),
-      ],
-    );
-  }
+ 
 
-  Widget _buildControlTile({
-    required IconData icon,
-    required String label,
-    required String subLabel,
-    required bool isActive,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isActive ? AppColors.darkGreen.withOpacity(0.1) : AppColors.mintBackground.withOpacity(0.5),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: isActive ? AppColors.darkGreen : Colors.blueGrey, size: 24),
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                Text(
-                  subLabel,
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          // Custom Sliding Switch
-          GestureDetector(
-            onTap: () => onChanged(!isActive),
-            child: AnimatedContainer(
-              duration: Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              width: 52,
-              height: 30,
-              padding: EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: isActive ? AppColors.darkGreen : Color(0xFFCFD8DC),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Stack(
-                children: [
-                  AnimatedAlign(
-                    duration: Duration(milliseconds: 300),
-                    curve: Curves.easeOutBack,
-                    alignment: isActive ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 3,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class GridPainter extends CustomPainter {

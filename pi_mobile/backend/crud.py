@@ -1,7 +1,15 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
-from models import User, Container, WorkerInvitation
-from schemas import UserCreate, UserUpdate, ContainerCreate, ContainerUpdate
+from models import User, Container, WorkerInvitation, ContainerData, FeedingSchedule
+from schemas import (
+    UserCreate,
+    UserUpdate,
+    ContainerCreate,
+    ContainerUpdate,
+    ContainerDataUpdate,
+    FeedingScheduleCreate,
+    FeedingScheduleUpdate,
+)
 from auth import hash_password
 
 
@@ -43,6 +51,8 @@ def update_user(db: Session, user_id: int, user_update: UserUpdate):
     if not db_user:
         return None
     
+    if user_update.email is not None:
+        db_user.email = user_update.email
     if user_update.full_name is not None:
         db_user.full_name = user_update.full_name
     if user_update.role is not None:
@@ -51,6 +61,8 @@ def update_user(db: Session, user_id: int, user_update: UserUpdate):
         db_user.is_active = user_update.is_active
     if user_update.role_selected is not None:
         db_user.role_selected = user_update.role_selected
+    if user_update.two_factor_enabled is not None:
+        db_user.two_factor_enabled = user_update.two_factor_enabled
     
     db.commit()
     db.refresh(db_user)
@@ -76,7 +88,7 @@ def get_users_count(db: Session):
 # ==================== CONTAINER FUNCTIONS ====================
 
 def create_container(db: Session, container: ContainerCreate, created_by: int):
-    """Create a new container."""
+    """Create a new container with initial data."""
     db_container = Container(
         name=container.name,
         latitude=container.latitude,
@@ -84,6 +96,23 @@ def create_container(db: Session, container: ContainerCreate, created_by: int):
         created_by=created_by,
     )
     db.add(db_container)
+    db.flush()  # Flush to get container ID
+    
+    # Create initial container data
+    db_container_data = ContainerData(
+        container_id=db_container.id,
+        temperature=None,
+        humidity=None,
+        light_level=None,
+        heater_status=False,
+        fan_status=False,
+        light_status=False,
+        humidifier_status=False,
+        target_temperature=25.0,  # Default target
+        target_humidity=60.0,  # Default target
+        target_light_level=75.0,  # Default light target
+    )
+    db.add(db_container_data)
     db.commit()
     db.refresh(db_container)
     return db_container
@@ -244,3 +273,121 @@ def respond_to_worker_invitation(db: Session, invitation_id: int, action: str):
     db.commit()
     db.refresh(invitation)
     return invitation
+
+
+def revoke_worker_invitation(db: Session, admin_id: int, worker_id: int):
+    """Revoke (delete) an accepted worker invitation by admin."""
+    invitation = (
+        db.query(WorkerInvitation)
+        .filter(
+            WorkerInvitation.admin_id == admin_id,
+            WorkerInvitation.worker_id == worker_id,
+            WorkerInvitation.status == "ACCEPTED",
+        )
+        .first()
+    )
+    if not invitation:
+        return False
+
+    db.delete(invitation)
+    db.commit()
+    return True
+
+
+# ==================== CONTAINER DATA FUNCTIONS ====================
+
+def get_container_data(db: Session, container_id: int):
+    """Get container data by container ID."""
+    return db.query(ContainerData).filter(ContainerData.container_id == container_id).first()
+
+
+def update_container_data(db: Session, container_id: int, data_update: ContainerDataUpdate):
+    """Update container data."""
+    db_data = get_container_data(db, container_id)
+    if not db_data:
+        # Create new data if doesn't exist
+        db_data = ContainerData(container_id=container_id)
+        db.add(db_data)
+    
+    # Update fields
+    if data_update.temperature is not None:
+        db_data.temperature = data_update.temperature
+    if data_update.humidity is not None:
+        db_data.humidity = data_update.humidity
+    if data_update.light_level is not None:
+        db_data.light_level = data_update.light_level
+    if data_update.heater_status is not None:
+        db_data.heater_status = data_update.heater_status
+    if data_update.fan_status is not None:
+        db_data.fan_status = data_update.fan_status
+    if data_update.light_status is not None:
+        db_data.light_status = data_update.light_status
+    if data_update.humidifier_status is not None:
+        db_data.humidifier_status = data_update.humidifier_status
+    if data_update.target_temperature is not None:
+        db_data.target_temperature = data_update.target_temperature
+    if data_update.target_humidity is not None:
+        db_data.target_humidity = data_update.target_humidity
+    if data_update.target_light_level is not None:
+        db_data.target_light_level = data_update.target_light_level
+    
+    db.commit()
+    db.refresh(db_data)
+    return db_data
+
+
+# ==================== FEEDING SCHEDULE FUNCTIONS ====================
+
+def get_feeding_schedules(db: Session, container_id: int):
+    """Get feeding schedules for a container ordered by datetime."""
+    return (
+        db.query(FeedingSchedule)
+        .filter(FeedingSchedule.container_id == container_id)
+        .order_by(FeedingSchedule.feeding_at.asc())
+        .all()
+    )
+
+
+def create_feeding_schedule(db: Session, container_id: int, schedule: FeedingScheduleCreate):
+    """Create one feeding schedule for a container."""
+    db_schedule = FeedingSchedule(
+        container_id=container_id,
+        feeding_at=schedule.feeding_at,
+        amount=schedule.amount,
+    )
+    db.add(db_schedule)
+    db.commit()
+    db.refresh(db_schedule)
+    return db_schedule
+
+
+def get_feeding_schedule_by_id(db: Session, schedule_id: int):
+    """Get a feeding schedule by ID."""
+    return db.query(FeedingSchedule).filter(FeedingSchedule.id == schedule_id).first()
+
+
+def update_feeding_schedule(db: Session, schedule_id: int, schedule_update: FeedingScheduleUpdate):
+    """Update one feeding schedule."""
+    db_schedule = get_feeding_schedule_by_id(db, schedule_id)
+    if not db_schedule:
+        return None
+
+    if schedule_update.feeding_at is not None:
+        db_schedule.feeding_at = schedule_update.feeding_at
+    if schedule_update.amount is not None:
+        db_schedule.amount = schedule_update.amount
+
+    db.commit()
+    db.refresh(db_schedule)
+    return db_schedule
+
+
+def delete_feeding_schedule(db: Session, schedule_id: int):
+    """Delete one feeding schedule by ID."""
+    db_schedule = get_feeding_schedule_by_id(db, schedule_id)
+    if not db_schedule:
+        return False
+
+    db.delete(db_schedule)
+    db.commit()
+    return True

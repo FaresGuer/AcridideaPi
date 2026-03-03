@@ -58,7 +58,7 @@ class _RoleSelectionDialogState extends State<RoleSelectionDialog> {
               // Admin Option
               _buildRoleOption(
                 role: 'ADMIN',
-                title: 'Admin',
+                title: 'Manager',
                 description: 'Manage workers and system',
                 icon: Icons.admin_panel_settings_outlined,
                 isSelected: _selectedRole == 'ADMIN',

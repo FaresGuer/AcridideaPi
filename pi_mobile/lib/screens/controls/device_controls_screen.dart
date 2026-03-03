@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app_colors.dart';
+import '../../services/auth_service.dart';
+import '../../services/container_service.dart';
 
 class DeviceControlsScreen extends StatefulWidget {
   const DeviceControlsScreen({super.key});
@@ -13,13 +15,86 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
   bool _ventilationActive = true;
   bool _humidifierActive = false;
   bool _heatingActive = true;
+  bool _lightingActive = false;
 
   // Threshold States
   double _tempThreshold = 28.0;
   double _humidityThreshold = 65.0;
+  double _lightThreshold = 75.0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContainerData();
+  }
+
+  Future<void> _loadContainerData() async {
+    final selectedContainer = ContainerService.selectedContainer.value;
+    if (selectedContainer == null) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final data = await AuthService.fetchContainerData(containerId: selectedContainer.id);
+      if (!mounted) return;
+      setState(() {
+        _ventilationActive = data['fan_status'] as bool? ?? _ventilationActive;
+        _humidifierActive = data['humidifier_status'] as bool? ?? _humidifierActive;
+        _heatingActive = data['heater_status'] as bool? ?? _heatingActive;
+        _lightingActive = data['light_status'] as bool? ?? _lightingActive;
+        _tempThreshold = (data['target_temperature'] as num?)?.toDouble() ?? _tempThreshold;
+        _humidityThreshold = (data['target_humidity'] as num?)?.toDouble() ?? _humidityThreshold;
+        _lightThreshold = (data['target_light_level'] as num?)?.toDouble() ?? _lightThreshold;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveContainerData({
+    bool? fanStatus,
+    bool? humidifierStatus,
+    bool? heaterStatus,
+    bool? lightStatus,
+    double? targetTemperature,
+    double? targetHumidity,
+    double? targetLightLevel,
+  }) async {
+    final selectedContainer = ContainerService.selectedContainer.value;
+    if (selectedContainer == null) return;
+
+    try {
+      await AuthService.updateContainerData(
+        containerId: selectedContainer.id,
+        fanStatus: fanStatus,
+        humidifierStatus: humidifierStatus,
+        heaterStatus: heaterStatus,
+        lightStatus: lightStatus,
+        targetTemperature: targetTemperature,
+        targetHumidity: targetHumidity,
+        targetLightLevel: targetLightLevel,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       // backgroundColor: AppColors.mintBackground,
       body: Container(
@@ -59,7 +134,10 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
                 icon: Icons.wind_power,
                 isActive: _ventilationActive,
                 activeColor: AppColors.success,
-                onChanged: (val) => setState(() => _ventilationActive = val),
+                onChanged: (val) {
+                  setState(() => _ventilationActive = val);
+                  _saveContainerData(fanStatus: val);
+                },
               ),
               SizedBox(height: 16),
 
@@ -69,7 +147,10 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
                 icon: Icons.water_drop,
                 isActive: _humidifierActive,
                 activeColor: AppColors.info, // Use blue for water/humidifier logically, though design might differ slightly
-                onChanged: (val) => setState(() => _humidifierActive = val),
+                onChanged: (val) {
+                  setState(() => _humidifierActive = val);
+                  _saveContainerData(humidifierStatus: val);
+                },
               ),
               SizedBox(height: 16),
 
@@ -79,7 +160,22 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
                 icon: Icons.thermostat,
                 isActive: _heatingActive,
                 activeColor: AppColors.success,
-                onChanged: (val) => setState(() => _heatingActive = val),
+                onChanged: (val) {
+                  setState(() => _heatingActive = val);
+                  _saveContainerData(heaterStatus: val);
+                },
+              ),
+              SizedBox(height: 16),
+              _buildControlCard(
+                title: 'Lighting System',
+                status: _lightingActive ? 'Targeting 60%' : 'Lighting disabled',
+                icon: Icons.lightbulb_outline,
+                isActive: _lightingActive,
+                activeColor: AppColors.success,
+                onChanged: (val) {
+                  setState(() => _lightingActive = val);
+                  _saveContainerData(lightStatus: val);
+                },
               ),
 
               SizedBox(height: 32),
@@ -104,6 +200,7 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
                 iconBgColor: Color(0xFFE0F2F1), // Light Teal
                 sliderColor: Color(0xFF009688),
                 onChanged: (val) => setState(() => _tempThreshold = val),
+                onChangeEnd: (val) => _saveContainerData(targetTemperature: val),
               ),
               SizedBox(height: 16),
 
@@ -118,6 +215,23 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
                 iconBgColor: Color(0xFFE3F2FD), // Light Blue
                 sliderColor: Color(0xFF448AFF),
                 onChanged: (val) => setState(() => _humidityThreshold = val),
+                onChangeEnd: (val) => _saveContainerData(targetHumidity: val),
+              ),
+
+              SizedBox(height: 16),
+
+              _buildThresholdCard(
+                title: 'Light',
+                value: _lightThreshold,
+                unit: '%',
+                min: 0,
+                max: 100,
+                icon: Icons.light_mode_outlined,
+                iconColor: Color(0xFFFFA000),
+                iconBgColor: Color(0xFFFFF8E1),
+                sliderColor: Color(0xFFFFB300),
+                onChanged: (val) => setState(() => _lightThreshold = val),
+                onChangeEnd: (val) => _saveContainerData(targetLightLevel: val),
               ),
 
               SizedBox(height: 100), // Bottom padding
@@ -148,7 +262,7 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
             Row(
               children: [
                 Text(
-                  'Greenhouse A',
+                  ContainerService.selectedContainer.value?.name ?? 'Container',
                   style: TextStyle(
                     fontSize: 14,
                     color: AppColors.textSecondary,
@@ -322,6 +436,7 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
     required Color iconBgColor,
     required Color sliderColor,
     required ValueChanged<double> onChanged,
+    ValueChanged<double>? onChangeEnd,
   }) {
     return Container(
       padding: EdgeInsets.all(24),
@@ -401,6 +516,7 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
                   min: min,
                   max: max,
                   onChanged: onChanged,
+                  onChangeEnd: onChangeEnd,
                 ),
               ),
               // Floating Label (Simplified positioning)

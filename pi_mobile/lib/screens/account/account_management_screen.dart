@@ -5,10 +5,14 @@ import '../../app_colors.dart';
 import '../../models/auth_user.dart';
 import '../../models/container.dart' as app_models;
 import '../../services/auth_service.dart';
+import '../../services/container_service.dart';
 import '../auth/login_screen.dart';
+import '../container/container_router.dart';
 
 class AccountManagementScreen extends StatefulWidget {
-  const AccountManagementScreen({super.key});
+  final int? initialTab;
+  
+  const AccountManagementScreen({super.key, this.initialTab});
 
   @override
   State<AccountManagementScreen> createState() => _AccountManagementScreenState();
@@ -16,7 +20,7 @@ class AccountManagementScreen extends StatefulWidget {
 
 class _AccountManagementScreenState extends State<AccountManagementScreen> with TickerProviderStateMixin {
   bool _pushNotifications = true;
-  bool _twoFactorEnabled = true;
+  bool _twoFactorEnabled = false;
   bool _isLoading = false;
   late bool _isAdminView;
   late AnimationController _controller;
@@ -33,7 +37,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
     )..forward();
     
     _isAdminView = AuthService.currentUser.value?.role == 'ADMIN';
-    _tabController = TabController(length: _isAdminView ? 3 : 1, vsync: this);
+    _twoFactorEnabled = AuthService.currentUser.value?.twoFactorEnabled ?? false;
+    _tabController = TabController(
+      length: _isAdminView ? 3 : 1,
+      vsync: this,
+      initialIndex: widget.initialTab ?? 0,
+    );
     _initializeAdminFutures();
   }
 
@@ -96,8 +105,6 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
                       child: Column(
                         children: [
                           _buildAnimatedItem(0, _buildHeader()),
-                          SizedBox(height: 24),
-                          _buildAnimatedItem(1, _buildProfileCard(user)),
                         ],
                       ),
                     ),
@@ -127,6 +134,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
                           padding: EdgeInsets.all(24),
                           child: Column(
                             children: [
+                              _buildAnimatedItem(1, _buildProfileCard(user)),
+                              SizedBox(height: 24),
                               _buildAnimatedItem(2, _buildSectionLabel('ENVIRONMENTAL ALERTS')),
                               SizedBox(height: 12),
                               _buildAnimatedItem(3, _buildEnvironmentalSection()),
@@ -278,10 +287,18 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
                 Text(
                   user?.fullName ?? 'Alex Morgan',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+                  overflow: TextOverflow.ellipsis,
                 ),
+                SizedBox(height: 4),
                 Text(
                   user?.email ?? 'alex.morgan@locust.farm',
-                  style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                  style: TextStyle(
+                    fontSize: 13, 
+                    color: AppColors.textSecondary,
+                    letterSpacing: 0.2,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
                 SizedBox(height: 12),
                 InkWell(
@@ -401,7 +418,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
             subtitleColor: _twoFactorEnabled ? Color(0xFF2E7D32) : Colors.grey,
             trailing: Switch(
               value: _twoFactorEnabled,
-              onChanged: (val) => setState(() => _twoFactorEnabled = val),
+              onChanged: _isLoading ? null : _handleTwoFactorToggle,
               activeThumbColor: AppColors.primary,
             ),
           ),
@@ -425,6 +442,21 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
       ),
       child: Column(
         children: [
+          _buildSettingsTile(
+            icon: Icons.inventory_2_outlined,
+            iconColor: AppColors.primary,
+            iconBg: AppColors.primary.withOpacity(0.1),
+            title: 'Change Container',
+            subtitle: ContainerService.selectedContainer.value?.name ?? 'None selected',
+            onTap: () {
+              // Clear selection and navigate to container router
+              ContainerService.clearSelection();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => ContainerRouter()),
+              );
+            },
+          ),
+          Divider(height: 1, indent: 64),
           _buildSettingsTile(
             icon: Icons.language,
             iconColor: Color(0xFF455A64),
@@ -611,35 +643,39 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
                     final isLast = index == farmers.length - 1;
                     return Column(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 24,
-                                backgroundColor: Color(0xFFC8E6C9),
-                                child: Text(
-                                  worker['full_name']?.substring(0, 1).toUpperCase() ?? '?',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                        InkWell(
+                          onTap: () => _showWorkerActionsDialog(worker),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor: Color(0xFFC8E6C9),
+                                  child: Text(
+                                    worker['full_name']?.substring(0, 1).toUpperCase() ?? '?',
+                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      worker['full_name'] ?? 'Unknown',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
-                                    ),
-                                    Text(
-                                      worker['email'] ?? 'No email',
-                                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                                    ),
-                                  ],
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        worker['full_name'] ?? 'Unknown',
+                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+                                      ),
+                                      Text(
+                                        worker['email'] ?? 'No email',
+                                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                                Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                              ],
+                            ),
                           ),
                         ),
                         if (!isLast) Divider(height: 1, indent: 64),
@@ -663,6 +699,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
         setState(() => _isLoading = true);
         try {
           await AuthService.logout();
+          ContainerService.clearSelection();  // Clear selected container
           if (!mounted) return;
 
           Navigator.of(context).pushAndRemoveUntil(
@@ -813,32 +850,36 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
                     final isLast = index == containers.length - 1;
                     return Column(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 24,
-                                backgroundColor: Color(0xFFBBDEFB),
-                                child: Icon(Icons.location_on, color: AppColors.primary),
-                              ),
-                              SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      container.name,
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
-                                    ),
-                                    Text(
-                                      'Lat: ${container.latitude.toStringAsFixed(4)}, Lng: ${container.longitude.toStringAsFixed(4)}',
-                                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                    ),
-                                  ],
+                        InkWell(
+                          onTap: () => _showContainerWorkersDialog(container),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor: Color(0xFFBBDEFB),
+                                  child: Icon(Icons.location_on, color: AppColors.primary),
                                 ),
-                              ),
-                            ],
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        container.name,
+                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+                                      ),
+                                      Text(
+                                        'Lat: ${container.latitude.toStringAsFixed(4)}, Lng: ${container.longitude.toStringAsFixed(4)}',
+                                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                              ],
+                            ),
                           ),
                         ),
                         if (!isLast) Divider(height: 1, indent: 64),
@@ -854,48 +895,253 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
     );
   }
 
-  void _showEditProfileDialog() {
+  void _showContainerWorkersDialog(app_models.Container container) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Edit Profile'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(decoration: InputDecoration(labelText: 'Full Name', hintText: 'Alex Morgan')),
-            SizedBox(height: 12),
-            TextField(decoration: InputDecoration(labelText: 'Email', hintText: 'alex@locust.farm')),
-          ],
+        title: Text('${container.name} Workers'),
+        content: SizedBox(
+          width: 320,
+          child: container.workers.isEmpty
+              ? Center(
+                  child: Text(
+                    'No workers assigned',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: container.workers.length,
+                  itemBuilder: (context, index) {
+                    final worker = container.workers[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Color(0xFFC8E6C9),
+                        child: Text(
+                          worker.fullName.isNotEmpty ? worker.fullName.substring(0, 1).toUpperCase() : '?',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                      title: Text(worker.fullName),
+                      subtitle: Text(worker.email),
+                    );
+                  },
+                ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(context), child: Text('Save')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
         ],
       ),
     );
   }
 
-  void _showChangePasswordDialog() {
+  void _showEditProfileDialog() {
+    final currentUser = AuthService.currentUser.value;
+    final fullNameController = TextEditingController(text: currentUser?.fullName ?? '');
+    final emailController = TextEditingController(text: currentUser?.email ?? '');
+    bool isSaving = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Change Password'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(decoration: InputDecoration(labelText: 'Current Password'), obscureText: true),
-            SizedBox(height: 12),
-            TextField(decoration: InputDecoration(labelText: 'New Password'), obscureText: true),
-            SizedBox(height: 12),
-            TextField(decoration: InputDecoration(labelText: 'Confirm Password'), obscureText: true),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(context), child: Text('Update')),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text('Edit Profile'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: fullNameController,
+                  decoration: InputDecoration(labelText: 'Full Name', hintText: 'Alex Morgan'),
+                ),
+                SizedBox(height: 12),
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(labelText: 'Email', hintText: 'alex@locust.farm'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final fullName = fullNameController.text.trim();
+                        final email = emailController.text.trim();
+
+                        if (fullName.isEmpty || email.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Full name and email are required')),
+                          );
+                          return;
+                        }
+
+                        setDialogState(() => isSaving = true);
+                        try {
+                          await AuthService.updateProfile(fullName: fullName, email: email);
+                          if (!mounted) return;
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(content: Text('Profile updated successfully')),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(content: Text('Error: ${e.toString()}')),
+                          );
+                        } finally {
+                          if (mounted) {
+                            setDialogState(() => isSaving = false);
+                          }
+                        }
+                      },
+                child: isSaving
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text('Save'),
+              ),
+            ],
+          );
+        },
       ),
     );
+  }
+
+  void _showChangePasswordDialog() {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool isUpdating = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text('Change Password'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: currentPasswordController,
+                  decoration: InputDecoration(labelText: 'Current Password'),
+                  obscureText: true,
+                ),
+                SizedBox(height: 12),
+                TextField(
+                  controller: newPasswordController,
+                  decoration: InputDecoration(labelText: 'New Password'),
+                  obscureText: true,
+                ),
+                SizedBox(height: 12),
+                TextField(
+                  controller: confirmPasswordController,
+                  decoration: InputDecoration(labelText: 'Confirm Password'),
+                  obscureText: true,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+              ElevatedButton(
+                onPressed: isUpdating
+                    ? null
+                    : () async {
+                        final currentPassword = currentPasswordController.text.trim();
+                        final newPassword = newPasswordController.text.trim();
+                        final confirmPassword = confirmPasswordController.text.trim();
+
+                        if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('All password fields are required')),
+                          );
+                          return;
+                        }
+
+                        if (newPassword != confirmPassword) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('New password and confirmation do not match')),
+                          );
+                          return;
+                        }
+
+                        if (newPassword.length < 6) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('New password must be at least 6 characters')),
+                          );
+                          return;
+                        }
+
+                        setDialogState(() => isUpdating = true);
+                        try {
+                          await AuthService.changePassword(
+                            currentPassword: currentPassword,
+                            newPassword: newPassword,
+                          );
+                          if (!mounted) return;
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(content: Text('Password changed successfully')),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(content: Text('Error: ${e.toString()}')),
+                          );
+                        } finally {
+                          if (mounted) {
+                            setDialogState(() => isUpdating = false);
+                          }
+                        }
+                      },
+                child: isUpdating
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text('Update'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _handleTwoFactorToggle(bool enabled) async {
+    final previous = _twoFactorEnabled;
+    setState(() {
+      _twoFactorEnabled = enabled;
+      _isLoading = true;
+    });
+
+    try {
+      await AuthService.updateTwoFactorEnabled(enabled);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Two-Factor Authentication ${enabled ? 'enabled' : 'disabled'}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _twoFactorEnabled = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _showLanguageDialog() {
@@ -1035,6 +1281,233 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
     if (wasCreated == true) {
       _refreshContainers();
     }
+  }
+
+  Future<void> _showWorkerActionsDialog(Map<String, dynamic> worker) async {
+    final workerId = (worker['id'] ?? worker['worker_id']) as int?;
+    final workerName = (worker['full_name'] ?? worker['name'] ?? 'Unknown') as String;
+
+    if (workerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: Worker ID not found')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(workerName),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Manage worker assignments',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _showAssignWorkerToContainerDialog(workerId, workerName);
+            },
+            child: Text('Assign to Container'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _confirmRemoveWorkerRelationship(workerId, workerName);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text('End Collaboration'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showAssignWorkerToContainerDialog(int workerId, String workerName) async {
+    Future<List<app_models.Container>> dialogContainersFuture = _containersFuture;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Assign $workerName to Container'),
+          content: SizedBox(
+            width: 300,
+            child: FutureBuilder<List<app_models.Container>>(
+              future: dialogContainersFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator(color: AppColors.primary));
+                }
+
+                if (snapshot.hasError) {
+                  return Text('Error loading containers: ${snapshot.error}');
+                }
+
+                final containers = snapshot.data ?? [];
+
+                if (containers.isEmpty) {
+                  return Center(
+                    child: Text('No containers available', style: TextStyle(color: AppColors.textSecondary)),
+                  );
+                }
+
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: containers.length,
+                  itemBuilder: (context, index) {
+                    final container = containers[index];
+                    final isAssignedToWorker = container.workers.any((worker) => worker.id == workerId);
+                    return ListTile(
+                      title: Text(container.name),
+                      subtitle: Text('Lat: ${container.latitude.toStringAsFixed(4)}, Lng: ${container.longitude.toStringAsFixed(4)}'),
+                      trailing: isAssignedToWorker
+                          ? Text(
+                              'Assigned',
+                              style: TextStyle(
+                                color: Color(0xFF00897B),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            )
+                          : null,
+                      onTap: () async {
+                        if (isAssignedToWorker) {
+                          final shouldUnassign = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text('Unassign Worker?'),
+                                  content: Text(
+                                    'Are you sure you want to unassign $workerName from ${container.name}?',
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                      child: Text('Unassign'),
+                                    ),
+                                  ],
+                                ),
+                              ) ??
+                              false;
+
+                          if (!shouldUnassign) return;
+                          await _unassignWorkerFromContainer(workerId, container.id);
+                        } else {
+                          await _assignWorkerToContainer(workerId, container.id);
+                        }
+
+                        final refreshedFuture = AuthService.fetchContainers();
+                        if (mounted) {
+                          setState(() {
+                            _containersFuture = refreshedFuture;
+                          });
+                        }
+                        setDialogState(() {
+                          dialogContainersFuture = refreshedFuture;
+                        });
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _assignWorkerToContainer(int workerId, int containerId) async {
+    try {
+      await AuthService.assignWorkerToContainer(
+        containerId: containerId,
+        workerId: workerId,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Worker assigned to container successfully')),
+      );
+      _refreshContainers();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _unassignWorkerFromContainer(int workerId, int containerId) async {
+    try {
+      await AuthService.removeWorkerFromContainer(
+        containerId: containerId,
+        workerId: workerId,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Worker unassigned from container successfully')),
+      );
+      _refreshContainers();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _removeWorkerRelationship(int workerId) async {
+    try {
+      await AuthService.removeWorkerInvitation(workerId: workerId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Collaboration ended.')),
+      );
+      _refreshWorkers();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _confirmRemoveWorkerRelationship(int workerId, String workerName) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('End Collaboration?'),
+        content: Text(
+          'This will remove $workerName from your team.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _removeWorkerRelationship(workerId);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text('End Collaboration'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

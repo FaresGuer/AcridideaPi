@@ -2,9 +2,22 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/auth_user.dart';
 import '../models/container.dart';
 import '../models/worker_invitation.dart';
+
+class LoginResult {
+  final bool requiresTwoFactor;
+  final String? verificationToken;
+  final String? message;
+
+  const LoginResult({
+    required this.requiresTwoFactor,
+    this.verificationToken,
+    this.message,
+  });
+}
 
 class AuthService {
   static String get _baseUrl {
@@ -21,7 +34,40 @@ class AuthService {
 
   static String? get token => _token;
 
-  static Future<void> login({
+  /// Initialize authentication - load saved session if available
+  static Future<void> initializeAuth() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedToken = prefs.getString('auth_token');
+      
+      if (savedToken != null && savedToken.isNotEmpty) {
+        _token = savedToken;
+        await _loadCurrentUser();
+      }
+    } catch (e) {
+      // Clear invalid token
+      _token = null;
+      currentUser.value = null;
+    }
+  }
+
+  /// Save token to SharedPreferences and load current user
+  static Future<void> _saveTokenAndLoadUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_token != null) {
+        await prefs.setString('auth_token', _token!);
+      }
+      await _loadCurrentUser();
+    } catch (e) {
+      // Clear invalid token on error
+      _token = null;
+      currentUser.value = null;
+      rethrow;
+    }
+  }
+
+  static Future<LoginResult> login({
     required String email,
     required String password,
   }) async {
@@ -41,10 +87,58 @@ class AuthService {
     }
 
     final tokenJson = jsonDecode(tokenResponse.body) as Map<String, dynamic>;
+    final requiresTwoFactor = tokenJson['requires_two_factor'] as bool? ?? false;
+
+    if (requiresTwoFactor) {
+      return LoginResult(
+        requiresTwoFactor: true,
+        verificationToken: tokenJson['verification_token'] as String?,
+        message: tokenJson['message'] as String?,
+      );
+    }
+
     _token = tokenJson['access_token'] as String?;
 
     if (_token == null) {
       throw Exception('Missing access token');
+    }
+
+    await _saveTokenAndLoadUser();
+    return const LoginResult(requiresTwoFactor: false);
+  }
+
+  static Future<void> verifyTwoFactorLogin({
+    required String verificationToken,
+    required String code,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/token/verify-2fa'),
+      headers: const {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'verification_token': verificationToken,
+        'code': code,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+
+    final tokenJson = jsonDecode(response.body) as Map<String, dynamic>;
+    _token = tokenJson['access_token'] as String?;
+
+    if (_token == null) {
+      throw Exception('Missing access token');
+    }
+
+    await _saveTokenAndLoadUser();
+  }
+
+  static Future<void> _loadCurrentUser() async {
+    if (_token == null) {
+      throw Exception('Not logged in');
     }
 
     final meResponse = await http.get(
@@ -60,6 +154,83 @@ class AuthService {
 
     final meJson = jsonDecode(meResponse.body) as Map<String, dynamic>;
     currentUser.value = AuthUser.fromJson(meJson);
+  }
+
+  static Future<void> updateProfile({
+    required String fullName,
+    required String email,
+  }) async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final response = await http.put(
+      Uri.parse('$_baseUrl/users/me'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'full_name': fullName,
+        'email': email,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+
+    final updatedJson = jsonDecode(response.body) as Map<String, dynamic>;
+    currentUser.value = AuthUser.fromJson(updatedJson);
+  }
+
+  static Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/users/me/change-password'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+  }
+
+  static Future<void> updateTwoFactorEnabled(bool enabled) async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final response = await http.put(
+      Uri.parse('$_baseUrl/users/me'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'two_factor_enabled': enabled,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+
+    final updatedJson = jsonDecode(response.body) as Map<String, dynamic>;
+    currentUser.value = AuthUser.fromJson(updatedJson);
   }
 
   static Future<void> register({
@@ -114,6 +285,13 @@ class AuthService {
   static Future<void> logout() async {
     _token = null;
     currentUser.value = null;
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('auth_token');
+    } catch (e) {
+      // Silently fail if unable to clear session
+    }
   }
 
   static Future<List<Map<String, dynamic>>> fetchWorkers() async {
@@ -133,7 +311,15 @@ class AuthService {
     }
 
     final List<dynamic> users = jsonDecode(response.body) as List<dynamic>;
-    return users.cast<Map<String, dynamic>>();
+      return users.map((user) {
+        if (user is Map<String, dynamic>) {
+          return user;
+        } else if (user is Map) {
+          return Map<String, dynamic>.from(user);
+        } else {
+          throw FormatException('Invalid user format: ${user.runtimeType}');
+        }
+      }).toList();
   }
 
   // ==================== CONTAINER METHODS ====================
@@ -259,7 +445,7 @@ class AuthService {
     }
   }
 
-  static Future<Container> assignWorkerToContainer({
+  static Future<void> assignWorkerToContainer({
     required int containerId,
     required int workerId,
   }) async {
@@ -277,12 +463,9 @@ class AuthService {
     if (response.statusCode != 200) {
       throw Exception(_extractError(response));
     }
-
-    final containerJson = jsonDecode(response.body) as Map<String, dynamic>;
-    return Container.fromJson(containerJson);
   }
 
-  static Future<Container> removeWorkerFromContainer({
+  static Future<void> removeWorkerFromContainer({
     required int containerId,
     required int workerId,
   }) async {
@@ -300,9 +483,168 @@ class AuthService {
     if (response.statusCode != 200) {
       throw Exception(_extractError(response));
     }
+  }
 
-    final containerJson = jsonDecode(response.body) as Map<String, dynamic>;
-    return Container.fromJson(containerJson);
+  static Future<Map<String, dynamic>> fetchContainerData({
+    required int containerId,
+  }) async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final response = await http.get(
+      Uri.parse('$_baseUrl/containers/$containerId/data'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> updateContainerData({
+    required int containerId,
+    bool? fanStatus,
+    bool? humidifierStatus,
+    bool? heaterStatus,
+    bool? lightStatus,
+    double? targetTemperature,
+    double? targetHumidity,
+    double? targetLightLevel,
+  }) async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final body = <String, dynamic>{};
+    if (fanStatus != null) body['fan_status'] = fanStatus;
+    if (humidifierStatus != null) body['humidifier_status'] = humidifierStatus;
+    if (heaterStatus != null) body['heater_status'] = heaterStatus;
+    if (lightStatus != null) body['light_status'] = lightStatus;
+    if (targetTemperature != null) body['target_temperature'] = targetTemperature;
+    if (targetHumidity != null) body['target_humidity'] = targetHumidity;
+    if (targetLightLevel != null) body['target_light_level'] = targetLightLevel;
+
+    final response = await http.put(
+      Uri.parse('$_baseUrl/containers/$containerId/data'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchFeedingSchedules({
+    required int containerId,
+  }) async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final response = await http.get(
+      Uri.parse('$_baseUrl/containers/$containerId/feeding-schedules'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+
+    final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+    return data
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .toList();
+  }
+
+  static Future<Map<String, dynamic>> createFeedingSchedule({
+    required int containerId,
+    required DateTime feedingAt,
+    required double amount,
+  }) async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/containers/$containerId/feeding-schedules'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'feeding_at': feedingAt.toIso8601String(),
+        'amount': amount,
+      }),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception(_extractError(response));
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> updateFeedingSchedule({
+    required int containerId,
+    required int scheduleId,
+    DateTime? feedingAt,
+    double? amount,
+  }) async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final body = <String, dynamic>{};
+    if (feedingAt != null) body['feeding_at'] = feedingAt.toIso8601String();
+    if (amount != null) body['amount'] = amount;
+
+    final response = await http.put(
+      Uri.parse('$_baseUrl/containers/$containerId/feeding-schedules/$scheduleId'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<void> deleteFeedingSchedule({
+    required int containerId,
+    required int scheduleId,
+  }) async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/containers/$containerId/feeding-schedules/$scheduleId'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+      },
+    );
+
+    if (response.statusCode != 204) {
+      throw Exception(_extractError(response));
+    }
   }
 
   // ==================== WORKER INVITATION METHODS ====================
@@ -376,6 +718,63 @@ class AuthService {
 
     final invitationJson = jsonDecode(response.body) as Map<String, dynamic>;
     return WorkerInvitation.fromJson(invitationJson);
+  }
+
+  static Future<void> removeWorkerInvitation({required int workerId}) async {
+    if (_token == null) {
+      throw Exception('Not logged in');
+    }
+
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/admin/workers/$workerId/revoke'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+      },
+    );
+
+    if (response.statusCode != 204) {
+      throw Exception(_extractError(response));
+    }
+  }
+
+  static Future<Map<String, dynamic>> forgotPassword({
+    required String email,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/forgot-password'),
+      headers: const {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'email': email}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<void> resetPassword({
+    required String resetToken,
+    required String code,
+    required String newPassword,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/reset-password'),
+      headers: const {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'reset_token': resetToken,
+        'code': code,
+        'new_password': newPassword,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
   }
 
   static String _extractError(http.Response response) {
