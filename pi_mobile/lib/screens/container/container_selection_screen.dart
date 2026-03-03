@@ -100,22 +100,22 @@ class _ContainerSelectionScreenState extends State<ContainerSelectionScreen> {
                     return NoContainerPage();
                   }
                   return GridView.builder(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 0.65,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.60,
                     ),
                     itemCount: containers.length,
                     itemBuilder: (context, index) {
                       final container = containers[index];
-                      final isWarning = index % 3 == 1;
+                      // ...existing code...
                       return _ContainerGridCard(
                         container: container,
                         index: index,
-                        isWarning: isWarning,
-                        imageAsset: index % 2 == 0 ? 'assets/images/locust_camera.jpg' : null,
+                        // isWarning removed as it's calculated internally
+                        imageAsset: 'assets/images/locust_camera.jpg',
                       );
                     },
                   );
@@ -212,13 +212,11 @@ class _ContainerSelectionScreenState extends State<ContainerSelectionScreen> {
 class _ContainerGridCard extends StatelessWidget {
   final models.Container container;
   final int index;
-  final bool isWarning;
   final String? imageAsset;
 
   const _ContainerGridCard({
     required this.container,
     required this.index,
-    this.isWarning = false,
     this.imageAsset,
   });
 
@@ -292,19 +290,44 @@ class _ContainerGridCard extends StatelessWidget {
                   top: 12,
                   left: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: statusColor,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.25), // Darker shadow for depth
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      status,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isCritical ? Icons.error_outline : (status == 'WARNING' ? Icons.warning_amber_rounded : Icons.check_circle_outline),
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          status,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            shadows: [
+                              Shadow(
+                                offset: Offset(0, 1),
+                                blurRadius: 2.0,
+                                color: Color.fromARGB(60, 0, 0, 0),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -315,45 +338,50 @@ class _ContainerGridCard extends StatelessWidget {
                 padding: const EdgeInsets.all(12.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween, // Distribute space evenly
                   children: [
-                    Text(
-                      container.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            'Sector $sector',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        Text(
+                          container.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
                           ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Sector $sector',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Last updated: $displayMins ago',
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Last updated: $displayMins ago',
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
-                    ),
 
-                    const SizedBox(height: 8),
-                    // Thin gray divider line
+                    // Divider
                     Container(
                       height: 1,
                       color: Color(0xFFE2E8F0),
+                      margin: EdgeInsets.symmetric(vertical: 4),
                     ),
-                    const SizedBox(height: 8),
 
                     // Metrics Row
                     Row(
@@ -365,20 +393,21 @@ class _ContainerGridCard extends StatelessWidget {
                             isCritical || (status == 'WARNING' && (hum > 70 || hum < 30)) ? statusColor : const Color(0xFF00C853)),
                       ],
                     ),
-                    const SizedBox(height: 12),
+
+                    // Action Link
                     Row(
                       children: [
                         Text(
                           status == 'ACTIVE' ? 'Details' : (status == 'CRITICAL' ? 'Take Action' : 'Review Alerts'),
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: statusColor,
                           ),
                         ),
                         const SizedBox(width: 4),
                         Icon(
-                          Icons.arrow_forward,
+                          Icons.arrow_forward_rounded,
                           size: 14,
                           color: statusColor,
                         ),
