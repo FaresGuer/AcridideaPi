@@ -378,7 +378,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
             trailing: Switch(
               value: _pushNotifications,
               onChanged: (val) => setState(() => _pushNotifications = val),
-              activeThumbColor: AppColors.primary,
+              thumbColor: WidgetStateProperty.resolveWith<Color>(
+                (Set<WidgetState> states) => AppColors.primary,
+              ),
             ),
           ),
         ],
@@ -419,7 +421,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
             trailing: Switch(
               value: _twoFactorEnabled,
               onChanged: _isLoading ? null : _handleTwoFactorToggle,
-              activeThumbColor: AppColors.primary,
+              thumbColor: WidgetStateProperty.resolveWith<Color>(
+                (Set<WidgetState> states) => AppColors.primary,
+              ),
             ),
           ),
         ],

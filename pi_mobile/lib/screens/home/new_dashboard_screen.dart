@@ -44,6 +44,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       SizedBox(height: 24),
                       _buildEnvironmentSection(),
                       SizedBox(height: 24),
+                      _buildEnvironmentalCharts(),
+                      SizedBox(height: 24),
                       _buildAlertsSection(),
                       SizedBox(height: 80), // Bottom spacer for FAB
                     ],
@@ -823,7 +825,209 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
- 
+  Widget _buildEnvironmentalCharts() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Environmental History',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        SizedBox(height: 16),
+        _buildChartCard(
+          title: 'Temperature',
+          icon: Icons.thermostat,
+          iconColor: AppColors.temperature,
+          unit: '°C',
+          currentValue: '28.5',
+          chartColor: AppColors.temperature,
+          dataPoints: _getTemperatureData(),
+        ),
+        SizedBox(height: 16),
+        _buildChartCard(
+          title: 'Humidity',
+          icon: Icons.water_drop,
+          iconColor: AppColors.humidity,
+          unit: '%',
+          currentValue: '62',
+          chartColor: AppColors.humidity,
+          dataPoints: _getHumidityData(),
+        ),
+        SizedBox(height: 16),
+        _buildChartCard(
+          title: 'Air Quality (AQI)',
+          icon: Icons.air,
+          iconColor: AppColors.primary,
+          unit: 'AQI',
+          currentValue: '120',
+          chartColor: AppColors.primary,
+          dataPoints: _getAirQualityData(),
+        ),
+        SizedBox(height: 16),
+        _buildChartCard(
+          title: 'CO₂ Level',
+          icon: Icons.cloud,
+          iconColor: Colors.purple,
+          unit: 'ppm',
+          currentValue: '450',
+          chartColor: Colors.purple,
+          dataPoints: _getCO2Data(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChartCard({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required String unit,
+    required String currentValue,
+    required Color chartColor,
+    required List<double> dataPoints,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 16,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Text(
+                          currentValue,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: iconColor,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          unit,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.trending_up, color: AppColors.success, size: 14),
+                    SizedBox(width: 4),
+                    Text(
+                      '+2.5%',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 20),
+          SizedBox(
+            height: 120,
+            child: CustomPaint(
+              painter: LineChartPainter(
+                dataPoints: dataPoints,
+                lineColor: chartColor,
+                fillColor: chartColor.withOpacity(0.1),
+              ),
+              child: Container(),
+            ),
+          ),
+          SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('00:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('04:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('08:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('12:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('16:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('20:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('24:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Mock data for temperature (in °C)
+  List<double> _getTemperatureData() {
+    return [26.5, 27.2, 28.0, 29.5, 28.8, 28.2, 27.5];
+  }
+
+  // Mock data for humidity (in %)
+  List<double> _getHumidityData() {
+    return [58.0, 60.5, 62.0, 65.0, 63.5, 61.0, 60.0];
+  }
+
+  // Mock data for air quality (AQI)
+  List<double> _getAirQualityData() {
+    return [95.0, 105.0, 115.0, 125.0, 120.0, 118.0, 112.0];
+  }
+
+  // Mock data for CO2 (in ppm)
+  List<double> _getCO2Data() {
+    return [400.0, 420.0, 445.0, 480.0, 465.0, 455.0, 440.0];
+  }
+
+
 
 }
 
@@ -845,6 +1049,116 @@ class GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class LineChartPainter extends CustomPainter {
+  final List<double> dataPoints;
+  final Color lineColor;
+  final Color fillColor;
+
+  LineChartPainter({
+    required this.dataPoints,
+    required this.lineColor,
+    required this.fillColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (dataPoints.isEmpty) return;
+
+    // Find min and max for scaling
+    final minValue = dataPoints.reduce((a, b) => a < b ? a : b);
+    final maxValue = dataPoints.reduce((a, b) => a > b ? a : b);
+    final range = maxValue - minValue;
+
+    // Draw grid lines
+    final gridPaint = Paint()
+      ..color = Colors.grey.shade100
+      ..strokeWidth = 1;
+
+    for (int i = 0; i <= 4; i++) {
+      final y = (size.height / 4) * i;
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        gridPaint,
+      );
+    }
+
+    // Calculate points for the line
+    final points = <Offset>[];
+    final segmentWidth = size.width / (dataPoints.length - 1);
+
+    for (int i = 0; i < dataPoints.length; i++) {
+      final x = i * segmentWidth;
+      final normalizedValue = range > 0 ? (dataPoints[i] - minValue) / range : 0.5;
+      final y = size.height - (normalizedValue * size.height * 0.9) - (size.height * 0.05);
+      points.add(Offset(x, y));
+    }
+
+    // Draw fill area
+    final fillPath = Path();
+    fillPath.moveTo(points.first.dx, size.height);
+    for (final point in points) {
+      fillPath.lineTo(point.dx, point.dy);
+    }
+    fillPath.lineTo(points.last.dx, size.height);
+    fillPath.close();
+
+    final fillPaint = Paint()
+      ..color = fillColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(fillPath, fillPaint);
+
+    // Draw the line
+    final linePath = Path();
+    linePath.moveTo(points.first.dx, points.first.dy);
+
+    for (int i = 1; i < points.length; i++) {
+      final prevPoint = points[i - 1];
+      final currentPoint = points[i];
+
+      // Create smooth curve using quadratic bezier
+      final controlPointX = (prevPoint.dx + currentPoint.dx) / 2;
+      linePath.quadraticBezierTo(
+        controlPointX, prevPoint.dy,
+        controlPointX, (prevPoint.dy + currentPoint.dy) / 2,
+      );
+      linePath.quadraticBezierTo(
+        controlPointX, currentPoint.dy,
+        currentPoint.dx, currentPoint.dy,
+      );
+    }
+
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(linePath, linePaint);
+
+    // Draw data point circles
+    final circlePaint = Paint()
+      ..color = lineColor
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    for (final point in points) {
+      canvas.drawCircle(point, 5, borderPaint);
+      canvas.drawCircle(point, 4, circlePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant LineChartPainter oldDelegate) {
+    return oldDelegate.dataPoints != dataPoints ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.fillColor != fillColor;
+  }
 }
 
 
