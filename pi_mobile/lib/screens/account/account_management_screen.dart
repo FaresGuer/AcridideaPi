@@ -691,6 +691,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
             );
           },
         ),
+        SizedBox(height: 40), // Bottom padding
       ],
     );
   }
@@ -754,76 +755,100 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
 
   // Dialog Helpers
   Widget _buildContainersListSection() {
-    return Column(
-      children: [
-        // Add Container Button
-        ElevatedButton.icon(
-          onPressed: _showAddContainerDialog,
-          icon: Icon(Icons.add),
-          label: Text('Add Container'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Back to Container Selection Button
+          Container(
+            width: double.infinity,
+            margin: EdgeInsets.only(bottom: 16),
+            child: OutlinedButton.icon(
+              onPressed: () {
+                // Clear current container selection and navigate back to selection screen
+                ContainerService.clearSelection();
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => ContainerRouter()),
+                  (route) => false,
+                );
+              },
+              icon: Icon(Icons.grid_view_rounded, size: 20),
+              label: Text('Back to Container Selection'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: BorderSide(color: AppColors.primary, width: 1.5),
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           ),
-        ),
-        SizedBox(height: 24),
-        // Containers List
-        FutureBuilder<List<app_models.Container>>(
-          future: _containersFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Container(
-                padding: EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
-              );
-            }
+          // Add Container Button
+          ElevatedButton.icon(
+            onPressed: _showAddContainerDialog,
+            icon: Icon(Icons.add),
+            label: Text('Add Container'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          SizedBox(height: 24),
+          // Containers List
+          FutureBuilder<List<app_models.Container>>(
+            future: _containersFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Container(
+                  padding: EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                );
+              }
 
-            if (snapshot.hasError) {
-              return Container(
-                padding: EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  'Error loading containers: ${snapshot.error}',
-                  style: TextStyle(color: Colors.red, fontSize: 14),
-                ),
-              );
-            }
+              if (snapshot.hasError) {
+                return Container(
+                  padding: EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    'Error loading containers: ${snapshot.error}',
+                    style: TextStyle(color: Colors.red, fontSize: 14),
+                  ),
+                );
+              }
 
-            final containers = snapshot.data ?? [];
+              final containers = snapshot.data ?? [];
 
-            if (containers.isEmpty) {
-              return Container(
-                padding: EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 10,
+              if (containers.isEmpty) {
+                return Container(
+                  padding: EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
                       offset: Offset(0, 4),
                     ),
                   ],
@@ -895,7 +920,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
             );
           },
         ),
+        SizedBox(height: 40), // Bottom padding
       ],
+      ),
     );
   }
 
@@ -1220,55 +1247,133 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
 
   Future<void> _showAddWorkerDialog() async {
     final emailController = TextEditingController();
+    bool _isSending = false;
 
     final wasAdded = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Add Worker'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Enter worker email address:', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-            SizedBox(height: 16),
-            TextField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                hintText: 'worker@locust.farm',
-                prefixIcon: Icon(Icons.email),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setDialogState) {
+          return AlertDialog(
+            titlePadding: EdgeInsets.zero,
+            contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Container(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.person_add_rounded, color: AppColors.primary, size: 28),
+                  SizedBox(width: 12),
+                  Text(
+                    'Invite Worker',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final email = emailController.text.trim();
-              if (email.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Please enter an email address')),
-                );
-                return;
-              }
-              
-              try {
-                await AuthService.sendWorkerInvitationByEmail(email: email);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Invitation sent to $email')),
-                );
-                Navigator.pop(context, true);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: ${e.toString()}')),
-                );
-              }
-            },
-            child: Text('Add'),
-          ),
-        ],
-      ),
+            content: SizedBox(
+              width: 340,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Enter the email address of the worker you want to invite to your team.',
+                    style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5),
+                  ),
+                  SizedBox(height: 24),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    onChanged: (value) => setDialogState(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'Email Address',
+                      hintText: 'worker@locust.farm',
+                      prefixIcon: Icon(Icons.email_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      errorText: emailController.text.isNotEmpty && !emailController.text.contains('@')
+                          ? 'Please enter a valid email'
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actionsPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.textSecondary,
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text('Cancel'),
+              ),
+              SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _isSending || emailController.text.isEmpty || !emailController.text.contains('@')
+                    ? null
+                    : () async {
+                        setDialogState(() => _isSending = true);
+                        final email = emailController.text.trim();
+
+                        try {
+                          await AuthService.sendWorkerInvitationByEmail(email: email);
+                          if (!mounted) return;
+
+                          Navigator.pop(context, true);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  Icon(Icons.check_circle, color: Colors.white),
+                                  SizedBox(width: 8),
+                                  Expanded(child: Text('Invitation sent to $email successfully!')),
+                                ],
+                              ),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          setDialogState(() => _isSending = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: ${e.toString()}')),
+                          );
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: AppColors.primary.withOpacity(0.3),
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: _isSending
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : Text('Send Invite'),
+              ),
+            ],
+          );
+        });
+      },
     );
 
     if (wasAdded == true) {
@@ -1343,96 +1448,216 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Assign $workerName to Container'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          titlePadding: EdgeInsets.zero,
+          contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          title: Container(
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            decoration: BoxDecoration(
+              color: Color(0xFFE0F7FA), // Light teal for container
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.assignment_ind_rounded, color: Color(0xFF00796B), size: 28),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Assign Container',
+                        style: TextStyle(
+                          color: Color(0xFF00796B),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 18,
+                        ),
+                      ),
+                      Text(
+                        'For $workerName',
+                        style: TextStyle(
+                          color: Color(0xFF004D40),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
           content: SizedBox(
-            width: 300,
-            child: FutureBuilder<List<app_models.Container>>(
-              future: dialogContainersFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator(color: AppColors.primary));
-                }
-
-                if (snapshot.hasError) {
-                  return Text('Error loading containers: ${snapshot.error}');
-                }
-
-                final containers = snapshot.data ?? [];
-
-                if (containers.isEmpty) {
-                  return Center(
-                    child: Text('No containers available', style: TextStyle(color: AppColors.textSecondary)),
-                  );
-                }
-
-                return ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: containers.length,
-                  itemBuilder: (context, index) {
-                    final container = containers[index];
-                    final isAssignedToWorker = container.workers.any((worker) => worker.id == workerId);
-                    return ListTile(
-                      title: Text(container.name),
-                      subtitle: Text('Lat: ${container.latitude.toStringAsFixed(4)}, Lng: ${container.longitude.toStringAsFixed(4)}'),
-                      trailing: isAssignedToWorker
-                          ? Text(
-                              'Assigned',
-                              style: TextStyle(
-                                color: Color(0xFF00897B),
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
-                              ),
-                            )
-                          : null,
-                      onTap: () async {
-                        if (isAssignedToWorker) {
-                          final shouldUnassign = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: Text('Unassign Worker?'),
-                                  content: Text(
-                                    'Are you sure you want to unassign $workerName from ${container.name}?',
-                                    style: TextStyle(fontSize: 14),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
-                                      child: Text('Cancel'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, true),
-                                      style: TextButton.styleFrom(foregroundColor: Colors.red),
-                                      child: Text('Unassign'),
-                                    ),
-                                  ],
-                                ),
-                              ) ??
-                              false;
-
-                          if (!shouldUnassign) return;
-                          await _unassignWorkerFromContainer(workerId, container.id);
-                        } else {
-                          await _assignWorkerToContainer(workerId, container.id);
-                        }
-
-                        final refreshedFuture = AuthService.fetchContainers();
-                        if (mounted) {
-                          setState(() {
-                            _containersFuture = refreshedFuture;
-                          });
-                        }
-                        setDialogState(() {
-                          dialogContainersFuture = refreshedFuture;
-                        });
-                      },
-                    );
+            width: 340,
+            height: 400,
+            child: Column(
+              children: [
+                // Search Field
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search containers...',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                  ),
+                  onChanged: (value) {
+                    // Implement filter logic if needed
                   },
-                );
-              },
+                ),
+                SizedBox(height: 16),
+                // List of Containers
+                Expanded(
+                  child: FutureBuilder<List<app_models.Container>>(
+                    future: dialogContainersFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Center(child: CircularProgressIndicator(color: AppColors.primary));
+                      }
+
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error loading containers', style: TextStyle(color: Colors.red)));
+                      }
+
+                      final containers = snapshot.data ?? [];
+
+                      if (containers.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey[300]),
+                              SizedBox(height: 12),
+                              Text('No containers available', style: TextStyle(color: AppColors.textSecondary)),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        itemCount: containers.length,
+                        separatorBuilder: (context, index) => SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final container = containers[index];
+                          final isAssignedToWorker = container.workers.any((worker) => worker.id == workerId);
+
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: isAssignedToWorker ? Color(0xFFE8F5E9) : Colors.white,
+                              border: Border.all(
+                                color: isAssignedToWorker ? Color(0xFF66BB6A) : Colors.grey[300]!,
+                                width: isAssignedToWorker ? 1.5 : 1,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () async {
+                                  if (isAssignedToWorker) {
+                                     // Unassign confirmation
+                                     final shouldUnassign = await showDialog<bool>(
+                                       context: context,
+                                       builder: (context) => AlertDialog(
+                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                         title: Text('Unassign Worker?'),
+                                         content: Text('Are you sure you want to unassign $workerName from ${container.name}?'),
+                                         actions: [
+                                           TextButton(
+                                             onPressed: () => Navigator.pop(context, false),
+                                             child: Text('Cancel'),
+                                           ),
+                                           TextButton(
+                                             onPressed: () => Navigator.pop(context, true),
+                                             style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                             child: Text('Unassign'),
+                                           ),
+                                         ],
+                                       ),
+                                     ) ?? false;
+
+                                     if (!shouldUnassign) return;
+                                     await _unassignWorkerFromContainer(workerId, container.id);
+                                  } else {
+                                     // Assign
+                                     await _assignWorkerToContainer(workerId, container.id);
+                                  }
+
+                                  // Refresh data
+                                  final refreshed = AuthService.fetchContainers();
+                                  if (mounted) setState(() { _containersFuture = refreshed; });
+                                  setDialogState(() { dialogContainersFuture = refreshed; });
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: isAssignedToWorker ? Colors.green[100] : Colors.blue[50],
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          isAssignedToWorker ? Icons.check_rounded : Icons.add_rounded,
+                                          color: isAssignedToWorker ? Colors.green[700] : Colors.blue[700],
+                                          size: 20,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              container.name,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                            Text(
+                                              'lat: ${container.latitude.toStringAsFixed(2)}, lng: ${container.longitude.toStringAsFixed(2)}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (isAssignedToWorker)
+                                        Container(
+                                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green[600],
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            'Active',
+                                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Done', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+            ),
           ],
         ),
       ),
@@ -1440,6 +1665,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
   }
 
   Future<void> _assignWorkerToContainer(int workerId, int containerId) async {
+
     try {
       await AuthService.assignWorkerToContainer(
         containerId: containerId,

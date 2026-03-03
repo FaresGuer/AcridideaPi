@@ -10,6 +10,7 @@ class Container {
   final DateTime updatedAt;
   final AuthUser creator;
   final List<AuthUser> workers;
+  final ContainerData? data;
 
   Container({
     required this.id,
@@ -21,6 +22,7 @@ class Container {
     required this.updatedAt,
     required this.creator,
     required this.workers,
+    this.data,
   });
 
   factory Container.fromJson(Map<String, dynamic> json) {
@@ -36,6 +38,7 @@ class Container {
       workers: (json['workers'] as List<dynamic>)
           .map((w) => AuthUser.fromJson(w as Map<String, dynamic>))
           .toList(),
+      data: json['data'] != null ? ContainerData.fromJson(json['data'] as Map<String, dynamic>) : null,
     );
   }
 
@@ -49,5 +52,25 @@ class Container {
     'updated_at': updatedAt.toIso8601String(),
     'creator': creator,
     'workers': workers,
+    'data': data?.toJson(),
+  };
+}
+
+class ContainerData {
+  final double? temperature;
+  final double? humidity;
+
+  ContainerData({this.temperature, this.humidity});
+
+  factory ContainerData.fromJson(Map<String, dynamic> json) {
+    return ContainerData(
+      temperature: (json['temperature'] as num?)?.toDouble(),
+      humidity: (json['humidity'] as num?)?.toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'temperature': temperature,
+    'humidity': humidity,
   };
 }

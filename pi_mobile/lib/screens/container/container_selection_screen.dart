@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
 import '../../app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/container_service.dart';
 import '../../models/container.dart' as models;
 import 'no_container_page.dart';
+import 'add_container_dialog.dart';
 import '../notifications/notifications_screen.dart';
 
 class ContainerSelectionScreen extends StatefulWidget {
@@ -27,159 +29,94 @@ class _ContainerSelectionScreenState extends State<ContainerSelectionScreen> {
     }
   }
 
+  Future<int> _loadPendingInviteCount() async {
+    final invitations = await AuthService.fetchReceivedInvitations();
+    return invitations.where((invitation) => invitation.status == 'PENDING').length;
+  }
+
   void _loadContainers() {
     setState(() {
       _containersFuture = AuthService.fetchContainers();
     });
   }
 
-  Future<int> _loadPendingInviteCount() async {
-    final invitations = await AuthService.fetchReceivedInvitations();
-    return invitations.where((invitation) => invitation.status == 'PENDING').length;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFE8F5E9),
+      backgroundColor: Color(0xFFF5F9F6),
       body: SafeArea(
         child: Column(
           children: [
-            // Header
-            Container(
-              padding: EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                   Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'My Containers',
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Manage your farming units',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                   Row(
                     children: [
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 28),
-                      ),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Select Container',
-                              style: TextStyle(color: Colors.black,fontSize: 24, fontWeight: FontWeight.bold),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              _user?.role == 'ADMIN' 
-                                  ? 'Choose a container to manage'
-                                  : 'Choose an assigned container',
-                              style: TextStyle(color: Colors.black, fontSize: 14),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (_user?.role == 'FARMER')
-                        FutureBuilder<int>(
-                          future: _pendingInvitesFuture,
-                          builder: (context, snapshot) {
-                            final pendingCount = snapshot.data ?? 0;
-                            return Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                IconButton(
-                                  icon: Icon(Icons.notifications_outlined, color: AppColors.primary),
-                                  onPressed: () async {
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (_) => NotificationsScreen()),
-                                    );
-                                    if (!mounted) return;
-                                    setState(() {
-                                      _pendingInvitesFuture = _loadPendingInviteCount();
-                                    });
-                                  },
-                                ),
-                                if (pendingCount > 0)
-                                  Positioned(
-                                    right: 8,
-                                    top: 8,
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      constraints: BoxConstraints(minWidth: 18),
-                                      child: Text(
-                                        pendingCount > 99 ? '99+' : '$pendingCount',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
+                      _buildNotificationBell(),
+                      SizedBox(width: 12),
+                      _buildProfileAvatar(),
                     ],
                   ),
                 ],
               ),
             ),
-
-            // Container List
             Expanded(
               child: FutureBuilder<List<models.Container>>(
                 future: _containersFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
+                    return Center(child: CircularProgressIndicator(color: AppColors.primary));
                   }
-
                   if (snapshot.hasError) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
-                          SizedBox(height: 16),
-                          Text('Error loading containers', style: TextStyle(fontSize: 16)),
-                          SizedBox(height: 8),
-                          Text(snapshot.error.toString(), style: TextStyle(color: AppColors.textSecondary)),
-                        ],
-                      ),
-                    );
+                    return Center(child: Text('Error loading containers'));
                   }
-
                   final containers = snapshot.data ?? [];
-
                   if (containers.isEmpty) {
-                    // No containers - show empty state page
                     return NoContainerPage();
                   }
-
-                  return ListView.builder(
-                    padding: EdgeInsets.all(16),
+                  return GridView.builder(
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 0.65,
+                    ),
                     itemCount: containers.length,
                     itemBuilder: (context, index) {
                       final container = containers[index];
-                      return _buildContainerCard(container);
+                      final isWarning = index % 3 == 1;
+                      return _ContainerGridCard(
+                        container: container,
+                        index: index,
+                        isWarning: isWarning,
+                        imageAsset: index % 2 == 0 ? 'assets/images/locust_camera.jpg' : null,
+                      );
                     },
                   );
                 },
@@ -188,81 +125,288 @@ class _ContainerSelectionScreenState extends State<ContainerSelectionScreen> {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final result = await showDialog<bool>(
+            context: context,
+            builder: (context) => const AddContainerMapDialog(),
+          );
+          if (result == true) {
+            _loadContainers();
+          }
+        },
+        backgroundColor: Color(0xFF00C853),
+        shape: CircleBorder(),
+        elevation: 4,
+        child: Icon(Icons.add, color: Colors.white, size: 28),
+      ),
     );
   }
 
-  Widget _buildContainerCard(models.Container container) {
-    final workerCount = container.workers.length;
-    
-    return Card(
-      margin: EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: () {
-          // Select container - main.dart's ValueListenableBuilder will handle navigation
-          ContainerService.selectContainer(container);
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.inventory_2, color: AppColors.primary, size: 24),
+  Widget _buildNotificationBell() {
+    return FutureBuilder<int>(
+      future: _pendingInvitesFuture,
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              icon: Icon(Icons.notifications_outlined, color: Color(0xFF64748B)),
+              onPressed: () async {
+                 if (_user?.role == 'FARMER') {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => NotificationsScreen()),
+                  );
+                  if (!mounted) return;
+                  setState(() {
+                    _pendingInvitesFuture = _loadPendingInviteCount();
+                  });
+                }
+              },
+            ),
+            if (count > 0)
+              Positioned(
+                right: 12,
+                top: 12,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: AppColors.liveRed,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
                   ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          container.name,
-                          style: TextStyle(color: Colors.black,fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileAvatar() {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Color(0xFFFFDAB9),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Icon(Icons.inventory_2_outlined, color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _ContainerGridCard extends StatelessWidget {
+  final models.Container container;
+  final int index;
+  final bool isWarning;
+  final String? imageAsset;
+
+  const _ContainerGridCard({
+    required this.container,
+    required this.index,
+    this.isWarning = false,
+    this.imageAsset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Use real data from backend, fallback to safe defaults if not yet populated
+    final temp = container.data?.temperature ?? 25.0;
+    final hum = container.data?.humidity ?? 60.0;
+    final sector = (index % 4) + 1;
+    // Mock last updated for now, or use updatedAt difference
+    final minsAgo = DateTime.now().difference(container.updatedAt).inMinutes.abs();
+    final displayMins = minsAgo > 60 ? '${(minsAgo/60).floor()}h' : '${minsAgo}m';
+
+    // Status Logic
+    String status = 'ACTIVE';
+    Color statusColor = const Color(0xFF00C853);
+    bool isCritical = false;
+
+    if (temp > 35 || hum < 30 || hum > 85) {
+      status = 'CRITICAL';
+      statusColor = AppColors.error;
+      isCritical = true;
+    } else if (temp > 28 || hum > 70) {
+      status = 'WARNING';
+      statusColor = Colors.orange;
+    }
+
+    return GestureDetector(
+      onTap: () {
+        ContainerService.selectContainer(container);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 16,
+              offset: Offset(0, 4),
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  child: Container(
+                    height: 120,
+                    width: double.infinity,
+                    color: Colors.grey.shade100,
+                    padding: const EdgeInsets.all(8),
+                    child: imageAsset != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.asset(imageAsset!, fit: BoxFit.cover),
+                        )
+                      : Container(
+                          color: const Color(0xFFF1F5F9),
+                          child: const Center(
+                            child: Icon(Icons.eco, size: 48, color: Color(0xFFE2E8F0)),
+                          )
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Created by ${container.creator.fullName}',
-                          style: TextStyle(color: Colors.black, fontSize: 13),
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      status,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      container.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Sector $sector',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  Icon(Icons.chevron_right, color: AppColors.textSecondary),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Last updated: $displayMins ago',
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                    ),
+
+                    const SizedBox(height: 8),
+                    // Thin gray divider line
+                    Container(
+                      height: 1,
+                      color: Color(0xFFE2E8F0),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Metrics Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildMetric('TEMP', '${temp.toStringAsFixed(0)}°C',
+                            isCritical || (status == 'WARNING' && temp > 28) ? statusColor : const Color(0xFF00C853)),
+                        _buildMetric('HUM', '${hum.toStringAsFixed(0)}%',
+                            isCritical || (status == 'WARNING' && (hum > 70 || hum < 30)) ? statusColor : const Color(0xFF00C853)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Text(
+                          status == 'ACTIVE' ? 'Details' : (status == 'CRITICAL' ? 'Take Action' : 'Review Alerts'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: statusColor,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward,
+                          size: 14,
+                          color: statusColor,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              SizedBox(height: 12),
-              Divider(),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.people_outline, size: 16, color: AppColors.textSecondary),
-                  SizedBox(width: 6),
-                  Text(
-                    '$workerCount worker${workerCount != 1 ? 's' : ''} assigned',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                  ),
-                  SizedBox(width: 16),
-                  Icon(Icons.location_on_outlined, size: 16, color: AppColors.textSecondary),
-                  SizedBox(width: 6),
-                  Text(
-                    '${container.latitude.toStringAsFixed(4)}, ${container.longitude.toStringAsFixed(4)}',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMetric(String label, String value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+        ),
+        Text(
+          value,
+          style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 }

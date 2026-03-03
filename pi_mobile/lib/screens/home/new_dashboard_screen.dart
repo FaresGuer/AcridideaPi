@@ -12,89 +12,193 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  Map<String, dynamic>? _containerData;
+  bool _isLoading = true;
+  String _lastUpdated = 'Loading...';
+  int? _currentContainerId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContainerData();
+  }
+
+  Future<void> _loadContainerData() async {
+    final selectedContainer = ContainerService.selectedContainer.value;
+    if (selectedContainer == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    // Check if we need to reload (different container selected)
+    if (_currentContainerId == selectedContainer.id && _containerData != null) {
+      return; // Already loaded this container's data
+    }
+
+    setState(() {
+      _isLoading = true;
+      _currentContainerId = selectedContainer.id;
+    });
+
+    try {
+      final data = await AuthService.fetchContainerData(containerId: selectedContainer.id);
+      if (!mounted) return;
+
+      final now = DateTime.now();
+      final lastUpdate = data['last_updated'] != null
+          ? DateTime.parse(data['last_updated'] as String)
+          : now;
+      final diff = now.difference(lastUpdate);
+
+      String timeAgo;
+      if (diff.inMinutes < 1) {
+        timeAgo = 'Just now';
+      } else if (diff.inMinutes < 60) {
+        timeAgo = '${diff.inMinutes}m ago';
+      } else if (diff.inHours < 24) {
+        timeAgo = '${diff.inHours}h ago';
+      } else {
+        timeAgo = '${diff.inDays}d ago';
+      }
+
+      setState(() {
+        _containerData = data;
+        _lastUpdated = timeAgo;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // backgroundColor: AppColors.mintBackground,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFC8E6C9), // Darker Mint (Green 100) on top left
-              Colors.white,      // Fades to White (lighter)
-            ],
-            stops: [0.0, 0.7],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildAppBar(),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSystemStatusCard(),
-                      SizedBox(height: 24),
-                      _buildLiveCameraCard(),
-                      SizedBox(height: 24),
-                      _buildEnvironmentSection(),
-                      SizedBox(height: 24),
-                      _buildEnvironmentalCharts(),
-                      SizedBox(height: 24),
-                      _buildAlertsSection(),
-                      SizedBox(height: 80), // Bottom spacer for FAB
-                    ],
-                  ),
-                ),
+    return ValueListenableBuilder(
+      valueListenable: ContainerService.selectedContainer,
+      builder: (context, container, child) {
+        // Reload data when container changes
+        if (container != null && _currentContainerId != container.id) {
+          Future.microtask(() => _loadContainerData());
+        }
+
+        return Scaffold(
+          // backgroundColor: AppColors.mintBackground,
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFC8E6C9), // Darker Mint (Green 100) on top left
+                  Colors.white,      // Fades to White (lighter)
+                ],
+                stops: [0.0, 0.7],
               ),
-            ],
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _buildAppBar(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSystemStatusCard(),
+                          SizedBox(height: 24),
+                          _buildLiveCameraCard(),
+                          SizedBox(height: 24),
+                          _buildEnvironmentSection(),
+                          SizedBox(height: 24),
+                          _buildEnvironmentalCharts(),
+                          SizedBox(height: 24),
+                          _buildAlertsSection(),
+                          SizedBox(height: 80), // Bottom spacer for FAB
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   Widget _buildAlertsSection() {
-    // Mock Alerts with specific data
-    final alerts = [
-      {
+    final temp = (_containerData?['temperature'] as num?)?.toDouble() ?? 0.0;
+    final hum = (_containerData?['humidity'] as num?)?.toDouble() ?? 0.0;
+    final containerName = ContainerService.selectedContainer.value?.name ?? 'Container';
+
+    // Generate dynamic alerts based on real data
+    final alerts = <Map<String, dynamic>>[];
+
+    if (temp > 35) {
+      alerts.add({
+        'title': 'Critical Temperature',
+        'desc': '$containerName temperature: ${temp.toStringAsFixed(1)}°C',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'critical',
+        'icon': Icons.thermostat,
+      });
+    } else if (temp > 28) {
+      alerts.add({
+        'title': 'High Temperature',
+        'desc': '$containerName temperature: ${temp.toStringAsFixed(1)}°C',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'warning',
+        'icon': Icons.thermostat,
+      });
+    }
+
+    if (hum > 85) {
+      alerts.add({
+        'title': 'Critical Humidity',
+        'desc': '$containerName humidity > 85%',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'critical',
+        'icon': Icons.water_drop,
+      });
+    } else if (hum > 70) {
+      alerts.add({
         'title': 'High Humidity',
-        'desc': 'Nursery Zone humidity > 85%',
-        'time': '10:45 AM',
+        'desc': '$containerName humidity: ${hum.toStringAsFixed(0)}%',
+        'time': _lastUpdated,
         'date': 'Today',
         'type': 'warning',
         'icon': Icons.water_drop,
-      },
-      {
+      });
+    } else if (hum < 30) {
+      alerts.add({
+        'title': 'Low Humidity',
+        'desc': '$containerName humidity: ${hum.toStringAsFixed(0)}%',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'warning',
+        'icon': Icons.water_drop,
+      });
+    }
+
+    // Add success alert if all is good
+    if (alerts.isEmpty) {
+      alerts.add({
         'title': 'System Check',
-        'desc': 'All sensors calibrated successfully',
-        'time': '09:30 AM',
+        'desc': 'All sensors nominal for $containerName',
+        'time': _lastUpdated,
         'date': 'Today',
         'type': 'success',
         'icon': Icons.check_circle,
-      },
-      {
-        'title': 'Motion Detected',
-        'desc': 'Unexpected movement in Zone B',
-        'time': '02:15 AM',
-        'date': 'Today',
-        'type': 'critical',
-        'icon': Icons.warning_amber_rounded,
-      },
-      {
-        'title': 'Internet Restored',
-        'desc': 'Connection established',
-        'time': 'Yesterday',
-        'date': 'Feb 23',
-        'type': 'info',
-        'icon': Icons.wifi,
-      },
-    ];
+      });
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -543,6 +647,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildEnvironmentSection() {
+    final temp = (_containerData?['temperature'] as num?)?.toDouble() ?? 0.0;
+    final hum = (_containerData?['humidity'] as num?)?.toDouble() ?? 0.0;
+    final tempProgress = temp / 50.0; // Assuming max temp 50°C
+    final humProgress = hum / 100.0;
+
     return Column(
       children: [
         Row(
@@ -557,7 +666,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             Text(
-              'Updated 2m ago',
+              _isLoading ? 'Loading...' : 'Updated $_lastUpdated',
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
@@ -573,9 +682,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.thermostat,
                 iconColor: AppColors.temperature,
                 label: 'Temperature',
-                value: '28.5',
+                value: _isLoading ? '--' : temp.toStringAsFixed(1),
                 unit: '°C',
-                progress: 0.7,
+                progress: tempProgress.clamp(0.0, 1.0),
                 progressColor: AppColors.temperature,
               ),
             ),
@@ -585,9 +694,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.water_drop,
                 iconColor: AppColors.humidity,
                 label: 'Humidity',
-                value: '62',
+                value: _isLoading ? '--' : hum.toStringAsFixed(0),
                 unit: '%',
-                progress: 0.6,
+                progress: humProgress.clamp(0.0, 1.0),
                 progressColor: AppColors.humidity,
               ),
             ),
@@ -826,6 +935,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildEnvironmentalCharts() {
+    final temp = (_containerData?['temperature'] as num?)?.toDouble() ?? 0.0;
+    final hum = (_containerData?['humidity'] as num?)?.toDouble() ?? 0.0;
+    final light = (_containerData?['light_level'] as num?)?.toDouble() ?? 0.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -843,7 +956,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           icon: Icons.thermostat,
           iconColor: AppColors.temperature,
           unit: '°C',
-          currentValue: '28.5',
+          currentValue: _isLoading ? '--' : temp.toStringAsFixed(1),
           chartColor: AppColors.temperature,
           dataPoints: _getTemperatureData(),
         ),
@@ -853,7 +966,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           icon: Icons.water_drop,
           iconColor: AppColors.humidity,
           unit: '%',
-          currentValue: '62',
+          currentValue: _isLoading ? '--' : hum.toStringAsFixed(0),
           chartColor: AppColors.humidity,
           dataPoints: _getHumidityData(),
         ),
@@ -863,7 +976,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           icon: Icons.air,
           iconColor: AppColors.primary,
           unit: 'AQI',
-          currentValue: '120',
+          currentValue: _isLoading ? '--' : '120',
           chartColor: AppColors.primary,
           dataPoints: _getAirQualityData(),
         ),
@@ -873,7 +986,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           icon: Icons.cloud,
           iconColor: Colors.purple,
           unit: 'ppm',
-          currentValue: '450',
+          currentValue: _isLoading ? '--' : '450',
           chartColor: Colors.purple,
           dataPoints: _getCO2Data(),
         ),
@@ -1007,24 +1120,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Mock data for temperature (in °C)
+  // Dynamic data for temperature (in °C) based on container ID
   List<double> _getTemperatureData() {
-    return [26.5, 27.2, 28.0, 29.5, 28.8, 28.2, 27.5];
+    final containerId = _currentContainerId ?? 1;
+    final baseTemp = (_containerData?['temperature'] as num?)?.toDouble() ?? 25.0;
+    final seed = containerId * 17; // Use container ID as seed
+
+    return List.generate(7, (i) {
+      final variance = ((seed + i * 13) % 10 - 5) / 2.0; // -2.5 to +2.5
+      return (baseTemp + variance).clamp(20.0, 40.0);
+    });
   }
 
-  // Mock data for humidity (in %)
+  // Dynamic data for humidity (in %) based on container ID
   List<double> _getHumidityData() {
-    return [58.0, 60.5, 62.0, 65.0, 63.5, 61.0, 60.0];
+    final containerId = _currentContainerId ?? 1;
+    final baseHum = (_containerData?['humidity'] as num?)?.toDouble() ?? 60.0;
+    final seed = containerId * 23;
+
+    return List.generate(7, (i) {
+      final variance = ((seed + i * 19) % 20 - 10) / 2.0; // -5 to +5
+      return (baseHum + variance).clamp(30.0, 90.0);
+    });
   }
 
-  // Mock data for air quality (AQI)
+  // Dynamic data for air quality (AQI) based on container ID
   List<double> _getAirQualityData() {
-    return [95.0, 105.0, 115.0, 125.0, 120.0, 118.0, 112.0];
+    final containerId = _currentContainerId ?? 1;
+    final seed = containerId * 31;
+
+    return List.generate(7, (i) {
+      final base = 100 + (seed % 30);
+      final variance = ((seed + i * 11) % 30 - 15).toDouble();
+      return (base + variance).clamp(80.0, 200.0);
+    });
   }
 
-  // Mock data for CO2 (in ppm)
+  // Dynamic data for CO2 (in ppm) based on container ID
   List<double> _getCO2Data() {
-    return [400.0, 420.0, 445.0, 480.0, 465.0, 455.0, 440.0];
+    final containerId = _currentContainerId ?? 1;
+    final seed = containerId * 41;
+
+    return List.generate(7, (i) {
+      final base = 400 + (seed % 100);
+      final variance = ((seed + i * 7) % 80 - 40).toDouble();
+      return (base + variance).clamp(350.0, 600.0);
+    });
   }
 
 
