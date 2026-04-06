@@ -163,7 +163,7 @@ pip install -r requirements.txt
 
 ### 4. Initialize the Database
 
-This will create all the tables inside the `locust_farm` database:
+This will create the database `locust_farm`:
 
 ```bash
 python init_db.py
