@@ -209,27 +209,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Alerts & Logs',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                // Add filter or view all logic
-              },
-              child: Text(
-                'View All',
-                style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
-              ),
-            )
-          ],
+        Text(
+          'Alerts & Logs',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
         ),
         SizedBox(height: 12),
         Container(
@@ -424,16 +410,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _formatTimestamp(DateTime dateTime) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final month = months[dateTime.month - 1];
+    final now = DateTime.now();
     final day = dateTime.day.toString().padLeft(2, '0');
+    final month = dateTime.month.toString().padLeft(2, '0');
     final hour = dateTime.hour.toString().padLeft(2, '0');
     final minute = dateTime.minute.toString().padLeft(2, '0');
-    final second = dateTime.second.toString().padLeft(2, '0');
-    return '$day $month ${dateTime.year} $hour:$minute:$second';
+
+    final isToday =
+        dateTime.year == now.year &&
+        dateTime.month == now.month &&
+        dateTime.day == now.day;
+
+    if (isToday) {
+      return '$hour:$minute';
+    }
+
+    return '$day/$month $hour:$minute';
   }
 
   Future<void> _generateFullReport() async {
