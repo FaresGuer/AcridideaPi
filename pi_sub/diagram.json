@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "author": "Subscriber ESP32",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": -4.76, "attrs": {} },
+    { "type": "wokwi-servo", "id": "servo1", "top": 36.4, "left": 144, "attrs": {} },
+    { "type": "wokwi-rgb-led", "id": "rgb1", "top": 61.6, "left": -123.7, "attrs": {} }
+  ],
+  "connections": [
+    [ "servo1:V+", "esp:5V", "red", [ "h-19.2", "v163.3", "h-153.6", "v-28.8" ] ],
+    [ "servo1:GND", "esp:GND.2", "black", [ "h-9.6", "v-28.8" ] ],
+    [ "servo1:PWM", "esp:18", "green", [ "h0", "v38.6" ] ],
+    [ "rgb1:COM", "esp:5V", "white", [ "v0" ] ],
+    [ "rgb1:R", "esp:14", "red", [ "v0" ] ],
+    [ "rgb1:G", "esp:27", "green", [ "v0" ] ],
+    [ "rgb1:B", "esp:26", "blue", [ "v0" ] ]
+  ],
+  "dependencies": {}
+}

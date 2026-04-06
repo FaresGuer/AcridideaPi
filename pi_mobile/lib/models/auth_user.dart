@@ -5,6 +5,7 @@ class AuthUser {
   final String role;
   final bool isActive;
   final bool roleSelected;
+  final bool twoFactorEnabled;
 
   const AuthUser({
     required this.id,
@@ -13,6 +14,7 @@ class AuthUser {
     required this.role,
     required this.isActive,
     required this.roleSelected,
+    required this.twoFactorEnabled,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,7 @@ class AuthUser {
       role: json['role'] as String,
       isActive: json['is_active'] as bool,
       roleSelected: json['role_selected'] as bool? ?? false,
+      twoFactorEnabled: json['two_factor_enabled'] as bool? ?? false,
     );
   }
 }

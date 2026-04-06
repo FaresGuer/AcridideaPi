@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "author": "Publisher ESP32",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": -48, "left": 158.44, "attrs": {} },
+    { "type": "wokwi-gas-sensor", "id": "gas1", "top": -45.3, "left": -89, "attrs": {} },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht1",
+      "top": 29.1,
+      "left": 292.2,
+      "attrs": { "temperature": "21.3" }
+    },
+    { "type": "wokwi-potentiometer", "id": "pot1", "top": 75.5, "left": -9.8, "attrs": {} },
+    { "type": "wokwi-rgb-led", "id": "rgb1", "top": 157.6, "left": -94.9, "attrs": {} }
+  ],
+  "connections": [
+    [ "gas1:VCC", "esp:5V", "red", [ "h57.6", "v152.7" ] ],
+    [ "gas1:GND", "esp:GND.1", "black", [ "h67.2", "v114.4" ] ],
+    [ "gas1:AOUT", "esp:34", "green", [ "h96", "v48" ] ],
+    [ "dht1:VCC", "esp:5V", "red", [ "v48", "h-163.2", "v-38.4" ] ],
+    [ "dht1:GND", "esp:GND.1", "black", [ "v57.6", "h-201.6", "v-96" ] ],
+    [ "dht1:SDA", "esp:4", "green", [ "v19.2", "h-38.3", "v-67.2" ] ],
+    [ "pot1:VCC", "esp:3V3", "red", [ "v19.2", "h85.6", "v-182.4" ] ],
+    [ "pot1:SIG", "esp:35", "green", [ "v38.4", "h105.2", "v-153.6" ] ],
+    [ "pot1:GND", "esp:GND.1", "black", [ "v67.2", "h124.8", "v-105.6" ] ],
+    [ "rgb1:COM", "esp:5V", "white", [ "v28.4", "h230.5" ] ],
+    [ "rgb1:R", "esp:14", "red", [ "v57.6", "h230.4", "v-172.8" ] ],
+    [ "rgb1:G", "esp:27", "limegreen", [ "v28.8", "h212.5", "v-153.6" ] ],
+    [ "rgb1:B", "esp:26", "blue", [ "v19.2", "h212.8", "v-153.6" ] ]
+  ],
+  "dependencies": {}
+  
+}

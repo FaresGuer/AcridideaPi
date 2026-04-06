@@ -3,7 +3,7 @@ import '../../app_colors.dart';
 import '../../services/auth_service.dart';
 
 class RoleSelectionDialog extends StatefulWidget {
-  const RoleSelectionDialog({Key? key}) : super(key: key);
+  const RoleSelectionDialog({super.key});
 
   @override
   State<RoleSelectionDialog> createState() => _RoleSelectionDialogState();
@@ -58,7 +58,7 @@ class _RoleSelectionDialogState extends State<RoleSelectionDialog> {
               // Admin Option
               _buildRoleOption(
                 role: 'ADMIN',
-                title: 'Admin',
+                title: 'Manager',
                 description: 'Manage workers and system',
                 icon: Icons.admin_panel_settings_outlined,
                 isSelected: _selectedRole == 'ADMIN',

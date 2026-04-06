@@ -1,6 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../app_colors.dart';
+import '../../services/auth_service.dart';
+import '../../services/container_service.dart';
+import '../notifications/notifications_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -10,94 +15,196 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  // Control States
-  bool _ventilationActive = true;
-  bool _humidifierActive = false;
-  bool _heatingActive = false;
+  Map<String, dynamic>? _containerData;
+  bool _isLoading = true;
+  String _lastUpdated = 'Loading...';
+  
+  int? _currentContainerId;
+  late Timer _refreshTimer;
+  bool _isGeneratingReport = false;
+
+  // For chart data
+  final List<Map<String, dynamic>> _temperatureHistory = [];
+  final List<Map<String, dynamic>> _humidityHistory = [];
+  final List<Map<String, dynamic>> _lightHistory = [];
+  final List<Map<String, dynamic>> _gasHistory = [];
+  static const int MAX_HISTORY = 30; // Keep last 30 data points
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContainerData();
+    // Reload container data every 5 seconds
+    _refreshTimer = Timer.periodic(Duration(seconds: 5), (_) {
+      _loadContainerData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadContainerData() async {
+    final selectedContainer = ContainerService.selectedContainer.value;
+    if (selectedContainer == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final data = await AuthService.fetchContainerData(containerId: selectedContainer.id);
+      final history = await AuthService.fetchContainerHistory(
+        containerId: selectedContainer.id,
+        limit: MAX_HISTORY * 4,
+      );
+      if (!mounted) return;
+
+      final lastUpdate = _resolveLastUpdatedAt(data, history);
+      final timeLabel = _formatTimestamp(lastUpdate);
+
+      setState(() {
+        _containerData = data;
+        _lastUpdated = timeLabel;
+        _isLoading = false;
+        _currentContainerId = selectedContainer.id;
+
+        _applyHistoryEntries(history);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // backgroundColor: AppColors.mintBackground,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFC8E6C9), // Darker Mint (Green 100) on top left
-              Colors.white,      // Fades to White (lighter)
-            ],
-            stops: [0.0, 0.7],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildAppBar(),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSystemStatusCard(),
-                      SizedBox(height: 24),
-                      _buildLiveCameraCard(),
-                      SizedBox(height: 24),
-                      _buildEnvironmentSection(),
-                      SizedBox(height: 24),
-                      _buildActiveControlsSection(),
-                      SizedBox(height: 24),
-                      _buildAlertsSection(),
-                      SizedBox(height: 80), // Bottom spacer for FAB
-                    ],
-                  ),
-                ),
+    return ValueListenableBuilder(
+      valueListenable: ContainerService.selectedContainer,
+      builder: (context, container, child) {
+        // Reload data when container changes
+        if (container != null && _currentContainerId != container.id) {
+          Future.microtask(() => _loadContainerData());
+        }
+
+        return Scaffold(
+          // backgroundColor: AppColors.mintBackground,
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFC8E6C9), // Darker Mint (Green 100) on top left
+                  Colors.white,      // Fades to White (lighter)
+                ],
+                stops: [0.0, 0.7],
               ),
-            ],
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _buildAppBar(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSystemStatusCard(),
+                          SizedBox(height: 24),
+                          _buildLiveCameraCard(),
+                          SizedBox(height: 24),
+                          _buildEnvironmentSection(),
+                          SizedBox(height: 24),
+                          _buildEnvironmentalCharts(),
+                          SizedBox(height: 24),
+                          _buildAlertsSection(),
+                          SizedBox(height: 80), // Bottom spacer for FAB
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   Widget _buildAlertsSection() {
-    // Mock Alerts with specific data
-    final alerts = [
-      {
+    final temp = (_containerData?['temperature'] as num?)?.toDouble() ?? 0.0;
+    final hum = (_containerData?['humidity'] as num?)?.toDouble() ?? 0.0;
+    final containerName = ContainerService.selectedContainer.value?.name ?? 'Container';
+
+    // Generate dynamic alerts based on real data
+    final alerts = <Map<String, dynamic>>[];
+
+    if (temp > 35) {
+      alerts.add({
+        'title': 'Critical Temperature',
+        'desc': '$containerName temperature: ${temp.toStringAsFixed(1)}°C',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'critical',
+        'icon': Icons.thermostat,
+      });
+    } else if (temp > 28) {
+      alerts.add({
+        'title': 'High Temperature',
+        'desc': '$containerName temperature: ${temp.toStringAsFixed(1)}°C',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'warning',
+        'icon': Icons.thermostat,
+      });
+    }
+
+    if (hum > 85) {
+      alerts.add({
+        'title': 'Critical Humidity',
+        'desc': '$containerName humidity > 85%',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'critical',
+        'icon': Icons.water_drop,
+      });
+    } else if (hum > 70) {
+      alerts.add({
         'title': 'High Humidity',
-        'desc': 'Nursery Zone humidity > 85%',
-        'time': '10:45 AM',
+        'desc': '$containerName humidity: ${hum.toStringAsFixed(0)}%',
+        'time': _lastUpdated,
         'date': 'Today',
         'type': 'warning',
         'icon': Icons.water_drop,
-      },
-      {
+      });
+    } else if (hum < 30) {
+      alerts.add({
+        'title': 'Low Humidity',
+        'desc': '$containerName humidity: ${hum.toStringAsFixed(0)}%',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'warning',
+        'icon': Icons.water_drop,
+      });
+    }
+
+    // Add success alert if all is good
+    if (alerts.isEmpty) {
+      alerts.add({
         'title': 'System Check',
-        'desc': 'All sensors calibrated successfully',
-        'time': '09:30 AM',
+        'desc': 'All sensors nominal for $containerName',
+        'time': _lastUpdated,
         'date': 'Today',
         'type': 'success',
         'icon': Icons.check_circle,
-      },
-      {
-        'title': 'Motion Detected',
-        'desc': 'Unexpected movement in Zone B',
-        'time': '02:15 AM',
-        'date': 'Today',
-        'type': 'critical',
-        'icon': Icons.warning_amber_rounded,
-      },
-      {
-        'title': 'Internet Restored',
-        'desc': 'Connection established',
-        'time': 'Yesterday',
-        'date': 'Feb 23',
-        'type': 'info',
-        'icon': Icons.wifi,
-      },
-    ];
+      });
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,33 +326,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Row(
-                            children: [
-                              CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              SizedBox(width: 16),
-                              Text('Generating Report...'),
-                            ],
-                          ),
-                          backgroundColor: Colors.black87,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                      // Simulate report generation
-                      Future.delayed(Duration(seconds: 2), () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Report Downloaded Successfully'),
-                            backgroundColor: AppColors.success,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      });
-                    },
+                    onPressed: _isGeneratingReport ? null : _generateFullReport,
                     icon: Icon(Icons.download_rounded, size: 20),
-                    label: Text('Generate Full Report'),
+                    label: _isGeneratingReport
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              ),
+                              SizedBox(width: 12),
+                              Text('Generating PDF...'),
+                            ],
+                          )
+                        : Text('Generate Full Report'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black, // Dark/Modern Look
                       foregroundColor: Colors.white,
@@ -298,51 +394,182 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               Text(
-                'Greenhouse A',
+                ContainerService.selectedContainer.value?.name ?? 'Container',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                   color: Colors.black,
-                  shadows: [
-                    Shadow(
-                      color: Color(0xFF39FF14).withOpacity(0.25),
-                      blurRadius: 15,
-                      offset: Offset(0, 0),
-                    ),
-                  ],
                 ),
               ),
             ],
           ),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Icon(Icons.notifications_outlined, color: Colors.black, size: 28),
-              Positioned(
-                right: -2,
-                top: -2,
-                child: Container(
-                  padding: EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppColors.liveRed,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
-                  child: Text(
-                    '3',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _buildNotificationBell(),
         ],
       ),
     );
+  }
+
+  DateTime _resolveLastUpdatedAt(Map<String, dynamic> data, List<Map<String, dynamic>> history) {
+    for (final entry in history.reversed) {
+      final recordedAtRaw = entry['recorded_at'] as String?;
+      final recordedAt = recordedAtRaw != null ? DateTime.tryParse(recordedAtRaw) : null;
+      if (recordedAt != null) {
+        return recordedAt.toLocal();
+      }
+    }
+
+    final dataUpdatedRaw = data['last_updated'] as String?;
+    final dataUpdated = dataUpdatedRaw != null ? DateTime.tryParse(dataUpdatedRaw) : null;
+    return (dataUpdated ?? DateTime.now()).toLocal();
+  }
+
+  String _formatTimestamp(DateTime dateTime) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final month = months[dateTime.month - 1];
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final second = dateTime.second.toString().padLeft(2, '0');
+    return '$day $month ${dateTime.year} $hour:$minute:$second';
+  }
+
+  Future<void> _generateFullReport() async {
+    final selectedContainer = ContainerService.selectedContainer.value;
+    if (selectedContainer == null || _containerData == null) return;
+
+    setState(() => _isGeneratingReport = true);
+
+    try {
+      final pdf = pw.Document();
+      final temp = (_containerData?['temperature'] as num?)?.toDouble();
+      final hum = (_containerData?['humidity'] as num?)?.toDouble();
+      final light = (_containerData?['light_level'] as num?)?.toDouble();
+      final gas = (_containerData?['gas_level'] as num?)?.toDouble();
+
+      final targetTemp = (_containerData?['target_temperature'] as num?)?.toDouble() ?? 28.0;
+      final targetHum = (_containerData?['target_humidity'] as num?)?.toDouble() ?? 65.0;
+      final targetLight = (_containerData?['target_light_level'] as num?)?.toDouble() ?? 75.0;
+      final targetGas = (_containerData?['target_gas_level'] as num?)?.toDouble() ?? 350.0;
+
+      pdf.addPage(
+        pw.MultiPage(
+          build: (context) => [
+            pw.Header(
+              level: 0,
+              child: pw.Text('Locust Farm Report', style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.Text('Container: ${selectedContainer.name}'),
+            pw.Text('Generated: ${_formatTimestamp(DateTime.now().toLocal())}'),
+            pw.SizedBox(height: 12),
+            pw.TableHelper.fromTextArray(
+              headers: const ['Metric', 'Value', 'Target', 'Status'],
+              data: [
+                ['Temperature', temp == null ? '--' : '${temp.toStringAsFixed(1)} °C', '${targetTemp.toStringAsFixed(1)} °C', temp == null ? '--' : _evaluateStatus(value: temp, target: targetTemp, safeDelta: 1.0, warningDelta: 3.0, higherIsWorse: true)],
+                ['Humidity', hum == null ? '--' : '${hum.toStringAsFixed(0)} %', '${targetHum.toStringAsFixed(0)} %', hum == null ? '--' : _evaluateStatus(value: hum, target: targetHum, safeDelta: 5.0, warningDelta: 10.0, higherIsWorse: false, symmetric: true)],
+                ['Light', light == null ? '--' : '${light.toStringAsFixed(0)} %', '${targetLight.toStringAsFixed(0)} %', light == null ? '--' : _evaluateStatus(value: light, target: targetLight, safeDelta: 5.0, warningDelta: 15.0, higherIsWorse: true)],
+                ['Gas', gas == null ? '--' : '${gas.toStringAsFixed(0)} ppm', '${targetGas.toStringAsFixed(0)} ppm', gas == null ? '--' : _evaluateStatus(value: gas, target: targetGas, safeDelta: 25.0, warningDelta: 75.0, higherIsWorse: true)],
+              ],
+            ),
+            pw.SizedBox(height: 16),
+            pw.Text('History samples', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            pw.Text('Temperature: ${_temperatureHistory.length} samples'),
+            pw.Text('Humidity: ${_humidityHistory.length} samples'),
+            pw.Text('Light: ${_lightHistory.length} samples'),
+            pw.Text('Gas: ${_gasHistory.length} samples'),
+          ],
+        ),
+      );
+
+      final bytes = await pdf.save();
+      await Printing.layoutPdf(
+        name: 'locust_farm_report_${selectedContainer.id}.pdf',
+        onLayout: (_) async => bytes,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('PDF generated. Use Save in the system dialog.'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to generate PDF: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingReport = false);
+      }
+    }
+  }
+
+  Widget _buildNotificationBell() {
+    final user = AuthService.currentUser.value;
+
+    return FutureBuilder<int>(
+      future: _fetchPendingInvitationCount(user?.role),
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+
+        return InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            );
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: EdgeInsets.all(4),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(Icons.notifications_outlined, color: Colors.black, size: 28),
+                if (count > 0)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
+                      padding: EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppColors.liveRed,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      child: Text(
+                        count > 9 ? '9+' : '$count',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<int> _fetchPendingInvitationCount(String? role) async {
+    if (role != 'FARMER') {
+      return 0;
+    }
+
+    try {
+      final invitations = await AuthService.fetchReceivedInvitations();
+      return invitations.where((inv) => inv.status == 'PENDING').length;
+    } catch (_) {
+      return 0;
+    }
   }
 
   Widget _buildSystemStatusCard() {
@@ -515,6 +742,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildEnvironmentSection() {
+    final temp = (_containerData?['temperature'] as num?)?.toDouble();
+    final hum = (_containerData?['humidity'] as num?)?.toDouble();
+    final light = (_containerData?['light_level'] as num?)?.toDouble();
+    final gas = (_containerData?['gas_level'] as num?)?.toDouble();
+
+    final targetTemp = (_containerData?['target_temperature'] as num?)?.toDouble() ?? 28.0;
+    final targetHum = (_containerData?['target_humidity'] as num?)?.toDouble() ?? 65.0;
+    final targetLight = (_containerData?['target_light_level'] as num?)?.toDouble() ?? 75.0;
+    final targetGas = (_containerData?['target_gas_level'] as num?)?.toDouble() ?? 350.0;
+
+    final tempStatus = temp == null
+        ? '--'
+        : _evaluateStatus(
+            value: temp,
+            target: targetTemp,
+            safeDelta: 1.0,
+            warningDelta: 3.0,
+            higherIsWorse: true,
+          );
+    final humStatus = hum == null
+        ? '--'
+        : _evaluateStatus(
+            value: hum,
+            target: targetHum,
+            safeDelta: 5.0,
+            warningDelta: 10.0,
+            higherIsWorse: false,
+            symmetric: true,
+          );
+    final lightStatus = light == null
+        ? '--'
+        : _evaluateStatus(
+            value: light,
+            target: targetLight,
+            safeDelta: 5.0,
+            warningDelta: 15.0,
+            higherIsWorse: true,
+          );
+    final gasStatus = gas == null
+        ? '--'
+        : _evaluateStatus(
+            value: gas,
+            target: targetGas,
+            safeDelta: 25.0,
+            warningDelta: 75.0,
+            higherIsWorse: true,
+          );
+
     return Column(
       children: [
         Row(
@@ -529,7 +804,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             Text(
-              'Updated 2m ago',
+              _isLoading ? 'Loading...' : 'Updated $_lastUpdated',
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
@@ -545,10 +820,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.thermostat,
                 iconColor: AppColors.temperature,
                 label: 'Temperature',
-                value: '28.5',
+                value: _isLoading || temp == null ? '--' : temp.toStringAsFixed(1),
                 unit: '°C',
-                progress: 0.7,
+                progress: (temp != null && targetTemp > 0 ? (temp / (targetTemp * 1.25)) : 0).clamp(0.0, 1.0).toDouble(),
                 progressColor: AppColors.temperature,
+                status: tempStatus,
+                statusColor: _getStatusColor(tempStatus),
               ),
             ),
             SizedBox(width: 16),
@@ -557,16 +834,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.water_drop,
                 iconColor: AppColors.humidity,
                 label: 'Humidity',
-                value: '62',
+                value: _isLoading || hum == null ? '--' : hum.toStringAsFixed(0),
                 unit: '%',
-                progress: 0.6,
+                progress: (hum != null ? (hum / 100.0) : 0).clamp(0.0, 1.0).toDouble(),
                 progressColor: AppColors.humidity,
+                status: humStatus,
+                statusColor: _getStatusColor(humStatus),
               ),
             ),
           ],
         ),
         SizedBox(height: 16),
-        _buildAirQualityCard(),
+        Row(
+          children: [
+            Expanded(
+              child: _buildMetricCard(
+                icon: Icons.light_mode_outlined,
+                iconColor: Colors.amber,
+                label: 'Light',
+                value: _isLoading || light == null ? '--' : light.toStringAsFixed(0),
+                unit: '%',
+                progress: (light != null && targetLight > 0 ? (light / (targetLight * 1.25)) : 0).clamp(0.0, 1.0).toDouble(),
+                progressColor: Colors.amber,
+                status: lightStatus,
+                statusColor: _getStatusColor(lightStatus),
+              ),
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              child: _buildMetricCard(
+                icon: Icons.co2,
+                iconColor: Colors.deepOrange,
+                label: 'Gas',
+                value: _isLoading || gas == null ? '--' : gas.toStringAsFixed(0),
+                unit: 'ppm',
+                progress: (gas != null && targetGas > 0 ? (gas / (targetGas * 1.25)) : 0).clamp(0.0, 1.0).toDouble(),
+                progressColor: Colors.deepOrange,
+                status: gasStatus,
+                statusColor: _getStatusColor(gasStatus),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -579,6 +888,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String unit,
     required double progress,
     required Color progressColor,
+    required String status,
+    required Color statusColor,
   }) {
     return Container(
       padding: EdgeInsets.all(20),
@@ -608,37 +919,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Icon(icon, color: iconColor, size: 20),
               ),
               Text(
-                'SAFE',
+                status,
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
+                  color: statusColor,
                   letterSpacing: 1,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 16),
+          // ...existing code...
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                  height: 1,
-                ),
-              ),
-              Text(
-                unit,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
-                  height: 1.5,
-                ),
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: double.tryParse(value) ?? 0),
+                duration: Duration(milliseconds: 600),
+                curve: Curves.easeInOut,
+                builder: (context, val, child) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        val.toStringAsFixed(value.contains('.') ? 1 : 0),
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                          height: 1,
+                        ),
+                      ),
+                      Text(
+                        unit,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -665,58 +988,133 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildAirQualityCard() {
+  Widget _buildEnvironmentalCharts() {
+    final temp = (_containerData?['temperature'] as num?)?.toDouble();
+    final hum = (_containerData?['humidity'] as num?)?.toDouble();
+    final light = (_containerData?['light_level'] as num?)?.toDouble();
+    final gas = (_containerData?['gas_level'] as num?)?.toDouble();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Environmental History',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        SizedBox(height: 16),
+        _buildChartCard(
+          title: 'Temperature',
+          icon: Icons.thermostat,
+          iconColor: AppColors.temperature,
+          unit: '°C',
+          currentValue: _isLoading || temp == null ? '--' : temp.toStringAsFixed(1),
+          chartColor: AppColors.temperature,
+          dataPoints: _getTemperatureData(),
+        ),
+        SizedBox(height: 16),
+        _buildChartCard(
+          title: 'Humidity',
+          icon: Icons.water_drop,
+          iconColor: AppColors.humidity,
+          unit: '%',
+          currentValue: _isLoading || hum == null ? '--' : hum.toStringAsFixed(0),
+          chartColor: AppColors.humidity,
+          dataPoints: _getHumidityData(),
+        ),
+        SizedBox(height: 16),
+        _buildChartCard(
+          title: 'Light',
+          icon: Icons.light_mode_outlined,
+          iconColor: Colors.amber,
+          unit: '%',
+          currentValue: _isLoading || light == null ? '--' : light.toStringAsFixed(0),
+          chartColor: Colors.amber,
+          dataPoints: _getLightData(),
+        ),
+        SizedBox(height: 16),
+        _buildChartCard(
+          title: 'Gas',
+          icon: Icons.co2,
+          iconColor: Colors.deepOrange,
+          unit: 'ppm',
+          currentValue: _isLoading || gas == null ? '--' : gas.toStringAsFixed(0),
+          chartColor: Colors.deepOrange,
+          dataPoints: _getGasData(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChartCard({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required String unit,
+    required String currentValue,
+    required Color chartColor,
+    required List<double> dataPoints,
+  }) {
     return Container(
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 16,
             offset: Offset(0, 4),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
                 padding: EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.mintBackground,
+                  color: iconColor.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.air, color: AppColors.primary, size: 24),
+                child: Icon(icon, color: iconColor, size: 20),
               ),
-              SizedBox(width: 16),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Air Quality',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
                     ),
+                    SizedBox(height: 2),
                     Row(
                       children: [
                         Text(
-                          '120',
+                          currentValue,
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                            color: iconColor,
                           ),
                         ),
                         SizedBox(width: 4),
                         Text(
-                          'AQI',
+                          unit,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.bold,
                             color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -725,71 +1123,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.liveRed.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  'WARNING',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.liveRed,
-                  ),
+                child: Row(
+                  children: [
+                    Icon(Icons.trending_up, color: AppColors.success, size: 14),
+                    SizedBox(width: 4),
+                    Text(
+                      '+2.5%',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Container(
-              height: 6,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0xFFA5D6A7), // Soft Green/Mint
-                    Color(0xFFFFCC80), // Soft Orange/Peach
-                    Color(0xFFEF9A9A)  // Soft Red/Pink
-                  ],
-                  stops: [0.0, 0.5, 1.0],
-                ),
+          SizedBox(height: 20),
+          SizedBox(
+            height: 120,
+            child: CustomPaint(
+              painter: LineChartPainter(
+                dataPoints: dataPoints,
+                lineColor: chartColor,
+                fillColor: chartColor.withOpacity(0.1),
               ),
-              child: Stack(
-                children: [
-                   Align(
-                      alignment: Alignment(-0.2, 0), // Position for ~120 AQI (visual approximation)
-                      child: Container(
-                        width: 4,
-                        height: 6,
-                        decoration: BoxDecoration(
-                           color: Colors.white,
-                           border: Border.all(color: Colors.black, width: 1),
-                           borderRadius: BorderRadius.circular(2),
-                        ),
-                      )
-                  ),
-                ],
-              ),
+              child: Container(),
             ),
           ),
           SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Ventilation Needed',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-              ),
-              Text(
-                'Moderate',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
+              Text('00:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('04:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('08:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('12:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('16:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('20:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text('24:00', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
             ],
           ),
         ],
@@ -797,139 +1175,137 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildActiveControlsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Active Controls',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        SizedBox(height: 16),
-        _buildControlTile(
-          icon: Icons.wind_power,
-          label: 'Ventilation',
-          subLabel: 'Auto-cycling enabled',
-          isActive: _ventilationActive,
-          onChanged: (val) => setState(() => _ventilationActive = val),
-        ),
-        SizedBox(height: 12),
-        _buildControlTile(
-          icon: Icons.water_drop_outlined,
-          label: 'Humidifier',
-          subLabel: 'Target: 65%',
-          isActive: _humidifierActive,
-          onChanged: (val) => setState(() => _humidifierActive = val),
-        ),
-        SizedBox(height: 12),
-        _buildControlTile(
-          icon: Icons.local_fire_department_outlined,
-          label: 'Heating',
-          subLabel: 'Idle',
-          isActive: _heatingActive,
-          onChanged: (val) => setState(() => _heatingActive = val),
-        ),
-      ],
-    );
+  // Dynamic data for temperature (in °C) based on container ID
+  // Return temperature history from API calls
+  List<double> _getTemperatureData() {
+    if (_temperatureHistory.isEmpty) {
+      final current = (_containerData?['temperature'] as num?)?.toDouble() ?? 24.0;
+      return List.generate(7, (_) => current);
+    }
+    // Return the last 7 data points
+    return _temperatureHistory.map((e) => e['y'] as double).toList();
   }
 
-  Widget _buildControlTile({
-    required IconData icon,
-    required String label,
-    required String subLabel,
-    required bool isActive,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isActive ? AppColors.darkGreen.withOpacity(0.1) : AppColors.mintBackground.withOpacity(0.5),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: isActive ? AppColors.darkGreen : Colors.blueGrey, size: 24),
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                Text(
-                  subLabel,
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          // Custom Sliding Switch
-          GestureDetector(
-            onTap: () => onChanged(!isActive),
-            child: AnimatedContainer(
-              duration: Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              width: 52,
-              height: 30,
-              padding: EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: isActive ? AppColors.darkGreen : Color(0xFFCFD8DC),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Stack(
-                children: [
-                  AnimatedAlign(
-                    duration: Duration(milliseconds: 300),
-                    curve: Curves.easeOutBack,
-                    alignment: isActive ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 3,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  // Return humidity history from API calls
+  List<double> _getHumidityData() {
+    if (_humidityHistory.isEmpty) {
+      final current = (_containerData?['humidity'] as num?)?.toDouble() ?? 65.0;
+      return List.generate(7, (_) => current);
+    }
+    // Return the last 7 data points
+    return _humidityHistory.map((e) => e['y'] as double).toList();
   }
+
+  List<double> _getLightData() {
+    if (_lightHistory.isEmpty) {
+      final current = (_containerData?['light_level'] as num?)?.toDouble() ?? 75.0;
+      return List.generate(7, (_) => current);
+    }
+    return _lightHistory.map((e) => e['y'] as double).toList();
+  }
+
+  List<double> _getGasData() {
+    if (_gasHistory.isEmpty) {
+      final current = (_containerData?['gas_level'] as num?)?.toDouble() ?? 350.0;
+      return List.generate(7, (_) => current);
+    }
+    return _gasHistory.map((e) => e['y'] as double).toList();
+  }
+
+  void _applyHistoryEntries(List<Map<String, dynamic>> historyEntries) {
+    _temperatureHistory.clear();
+    _humidityHistory.clear();
+    _lightHistory.clear();
+    _gasHistory.clear();
+
+    for (final entry in historyEntries) {
+      final sensorType = entry['sensor_type'] as String?;
+      final value = (entry['value'] as num?)?.toDouble();
+      final recordedAtRaw = entry['recorded_at'] as String?;
+      final recordedAt = recordedAtRaw != null ? DateTime.tryParse(recordedAtRaw) : null;
+      final timestamp = recordedAt?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch;
+      final timeLabel = recordedAt != null
+          ? '${recordedAt.hour}:${recordedAt.minute.toString().padLeft(2, '0')}'
+          : '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}';
+
+      if (sensorType == null || value == null) continue;
+
+      final sample = {
+        'x': timestamp,
+        'y': value,
+        'time': timeLabel,
+      };
+
+      switch (sensorType) {
+        case 'temperature':
+          _temperatureHistory.add(sample);
+          if (_temperatureHistory.length > MAX_HISTORY) {
+            _temperatureHistory.removeAt(0);
+          }
+          break;
+        case 'humidity':
+          _humidityHistory.add(sample);
+          if (_humidityHistory.length > MAX_HISTORY) {
+            _humidityHistory.removeAt(0);
+          }
+          break;
+        case 'light_level':
+          _lightHistory.add(sample);
+          if (_lightHistory.length > MAX_HISTORY) {
+            _lightHistory.removeAt(0);
+          }
+          break;
+        case 'gas_level':
+          _gasHistory.add(sample);
+          if (_gasHistory.length > MAX_HISTORY) {
+            _gasHistory.removeAt(0);
+          }
+          break;
+      }
+    }
+  }
+
+  String _evaluateStatus({
+    required double value,
+    required double target,
+    required double safeDelta,
+    required double warningDelta,
+    required bool higherIsWorse,
+    bool symmetric = false,
+  }) {
+    if (symmetric) {
+      final diff = (value - target).abs();
+      if (diff <= safeDelta) return 'SAFE';
+      if (diff <= warningDelta) return 'WARNING';
+      return 'CRITICAL';
+    }
+
+    if (higherIsWorse) {
+      if (value <= target) return 'SAFE';
+      if (value <= target + warningDelta) return 'WARNING';
+      return 'CRITICAL';
+    }
+
+    if (value >= target) return 'SAFE';
+    if (value >= target - warningDelta) return 'WARNING';
+    return 'CRITICAL';
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'SAFE':
+        return Colors.green;
+      case 'WARNING':
+        return AppColors.warning;
+      case 'CRITICAL':
+        return AppColors.liveRed;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+
+
 }
 
 class GridPainter extends CustomPainter {
@@ -950,6 +1326,109 @@ class GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class LineChartPainter extends CustomPainter {
+  final List<double> dataPoints;
+  final Color lineColor;
+  final Color fillColor;
+
+  LineChartPainter({
+    required this.dataPoints,
+    required this.lineColor,
+    required this.fillColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final safeDataPoints = dataPoints.where((value) => value.isFinite).toList();
+    if (safeDataPoints.isEmpty) return;
+
+    // Find min and max for scaling
+    final minValue = safeDataPoints.reduce((a, b) => a < b ? a : b);
+    final maxValue = safeDataPoints.reduce((a, b) => a > b ? a : b);
+    final range = maxValue - minValue;
+
+    // Draw grid lines
+    final gridPaint = Paint()
+      ..color = Colors.grey.shade100
+      ..strokeWidth = 1;
+
+    for (int i = 0; i <= 4; i++) {
+      final y = (size.height / 4) * i;
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        gridPaint,
+      );
+    }
+
+    // Calculate points for the line
+    final points = <Offset>[];
+    if (safeDataPoints.length == 1) {
+      final normalizedValue = range > 0 ? (safeDataPoints.first - minValue) / range : 0.5;
+      final y = size.height - (normalizedValue * size.height * 0.9) - (size.height * 0.05);
+      points.add(Offset(size.width / 2, y));
+    } else {
+      final segmentWidth = size.width / (safeDataPoints.length - 1);
+
+      for (int i = 0; i < safeDataPoints.length; i++) {
+        final x = i * segmentWidth;
+        final normalizedValue = range > 0 ? (safeDataPoints[i] - minValue) / range : 0.5;
+        final y = size.height - (normalizedValue * size.height * 0.9) - (size.height * 0.05);
+        points.add(Offset(x, y));
+      }
+    }
+
+    // Draw fill area
+    final fillPath = Path();
+    fillPath.moveTo(points.first.dx, size.height);
+    for (final point in points) {
+      fillPath.lineTo(point.dx, point.dy);
+    }
+    fillPath.lineTo(points.last.dx, size.height);
+    fillPath.close();
+
+    final fillPaint = Paint()
+      ..color = fillColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(fillPath, fillPaint);
+
+    // Draw the line
+    final linePath = Path();
+    linePath.moveTo(points.first.dx, points.first.dy);
+
+    for (int i = 1; i < points.length; i++) {
+      final prevPoint = points[i - 1];
+      final currentPoint = points[i];
+
+      // Create smooth curve using quadratic bezier
+      final controlPointX = (prevPoint.dx + currentPoint.dx) / 2;
+      linePath.quadraticBezierTo(
+        controlPointX, prevPoint.dy,
+        controlPointX, (prevPoint.dy + currentPoint.dy) / 2,
+      );
+      linePath.quadraticBezierTo(
+        controlPointX, currentPoint.dy,
+        currentPoint.dx, currentPoint.dy,
+      );
+    }
+
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(linePath, linePaint);
+
+  }
+
+  @override
+  bool shouldRepaint(covariant LineChartPainter oldDelegate) {
+    return oldDelegate.dataPoints != dataPoints ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.fillColor != fillColor;
+  }
 }
 
 
