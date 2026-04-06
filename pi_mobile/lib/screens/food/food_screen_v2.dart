@@ -318,7 +318,7 @@ class _FoodDistributionScreenState extends State<FoodDistributionScreen> {
   Widget _buildCalendarStrip() {
     final today = DateTime.now();
 
-    return Container(
+    return SizedBox(
       height: 100,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
