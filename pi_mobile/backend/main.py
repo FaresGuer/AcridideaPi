@@ -84,8 +84,17 @@ from auth import (
 load_dotenv()
 
 TWO_FACTOR_CODE_EXPIRY_MINUTES = int(os.getenv("TWO_FACTOR_CODE_EXPIRY_MINUTES", "10"))
+GATEWAY_FRESHNESS_SECONDS = int(os.getenv("GATEWAY_FRESHNESS_SECONDS", "15"))
 _two_factor_challenges: dict[str, dict] = {}
 _password_reset_challenges: dict[str, dict] = {}  # For password reset flow
+
+
+def _is_gateway_fresh(data) -> bool:
+    """Treat gateway as online while container data updates arrive recently."""
+    if not data or not data.last_updated:
+        return False
+
+    return (datetime.utcnow() - data.last_updated).total_seconds() <= GATEWAY_FRESHNESS_SECONDS
 
 
 def _ensure_user_schema_columns() -> None:
@@ -806,8 +815,13 @@ async def get_container_data_endpoint(
 
     data = get_container_data(db, container_id)
     if not data:
-        data = update_container_data(db, container_id, ContainerDataUpdate())
-    else:
+        data = update_container_data(
+            db,
+            container_id,
+            ContainerDataUpdate(),
+            apply_automatic_logic=False,
+        )
+    elif not _is_gateway_fresh(data):
         data = reconcile_container_actuators(db, container_id)
 
     record_container_sensor_history_snapshot(db, container_id, data)
@@ -844,7 +858,15 @@ async def update_container_data_endpoint(
                 detail="You don't have permission to update this container"
             )
 
-    return update_container_data(db, container_id, data_update)
+    existing_data = get_container_data(db, container_id)
+    gateway_fresh = _is_gateway_fresh(existing_data)
+
+    return update_container_data(
+        db,
+        container_id,
+        data_update,
+        apply_automatic_logic=not gateway_fresh,
+    )
 
 
 @app.get("/containers/{container_id}/history", response_model=list[ContainerSensorHistoryResponse])

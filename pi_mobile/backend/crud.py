@@ -448,7 +448,12 @@ def reconcile_container_actuators(db: Session, container_id: int):
     return db_data
 
 
-def update_container_data(db: Session, container_id: int, data_update: ContainerDataUpdate):
+def update_container_data(
+    db: Session,
+    container_id: int,
+    data_update: ContainerDataUpdate,
+    apply_automatic_logic: bool = True,
+):
     """Update container data."""
     db_data = get_container_data(db, container_id)
     if not db_data:
@@ -518,7 +523,8 @@ def update_container_data(db: Session, container_id: int, data_update: Container
     if data_update.target_gas_level_min is not None:
         db_data.target_gas_level_min = data_update.target_gas_level_min
 
-    _apply_automatic_actuator_logic(db_data, manual_overrides=manual_overrides)
+    if apply_automatic_logic:
+        _apply_automatic_actuator_logic(db_data, manual_overrides=manual_overrides)
     
     db.commit()
     db.refresh(db_data)
