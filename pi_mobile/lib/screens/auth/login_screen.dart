@@ -322,18 +322,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           return;
         }
       }
-
-      // Login successful - wait a moment for ValueNotifier to propagate
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
       // Don't navigate manually - main.dart's ValueListenableBuilder will handle routing
     } catch (error) {
       if (mounted) {
-        setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error.toString())),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
       }
     }
   }

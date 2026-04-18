@@ -45,6 +45,14 @@ DB_NAME=locust_farm
 SECRET_KEY=your_secret_key_here_change_in_production
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# Optional: SMS alerts for critical sensor states (Twilio)
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_FROM_PHONE=+1XXXXXXXXXX
+
+# Global recipient for all critical alerts
+CRITICAL_ALERT_PHONE=+216 98264250
 ```
 
 ### 4. Initialize Database
@@ -134,7 +142,7 @@ Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
-  "full_name": "Jane Doe"  # Can only update own full_name
+  "full_name": "Jane Doe"
 }
 
 Response: 200 OK

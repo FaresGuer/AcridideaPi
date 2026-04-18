@@ -138,14 +138,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildAlertsSection() {
-    final temp = (_containerData?['temperature'] as num?)?.toDouble() ?? 0.0;
-    final hum = (_containerData?['humidity'] as num?)?.toDouble() ?? 0.0;
+    final temp = (_containerData?['temperature'] as num?)?.toDouble();
+    final hum = (_containerData?['humidity'] as num?)?.toDouble();
+    final light = (_containerData?['light_level'] as num?)?.toDouble();
+    final gas = (_containerData?['gas_level'] as num?)?.toDouble();
+
+    final tempMin = (_containerData?['target_temperature_min'] as num?)?.toDouble() ?? 20.0;
+    final tempMax = (_containerData?['target_temperature'] as num?)?.toDouble() ?? 28.0;
+    final humMin = (_containerData?['target_humidity_min'] as num?)?.toDouble() ?? 40.0;
+    final humMax = (_containerData?['target_humidity'] as num?)?.toDouble() ?? 65.0;
+    final lightMin = (_containerData?['target_light_level_min'] as num?)?.toDouble() ?? 30.0;
+    final lightMax = (_containerData?['target_light_level'] as num?)?.toDouble() ?? 75.0;
+    final gasMin = (_containerData?['target_gas_level_min'] as num?)?.toDouble() ?? 1000.0;
+    final gasMax = (_containerData?['target_gas_level'] as num?)?.toDouble() ?? 2000.0;
+
+    final tempStatus = temp == null
+        ? '--'
+      : _evaluateStatusInRange(
+            value: temp,
+        min: tempMin,
+        max: tempMax,
+          );
+    final humStatus = hum == null
+        ? '--'
+      : _evaluateStatusInRange(
+            value: hum,
+        min: humMin,
+        max: humMax,
+          );
+    final lightStatus = light == null
+        ? '--'
+      : _evaluateStatusInRange(
+            value: light,
+        min: lightMin,
+        max: lightMax,
+          );
+    final gasStatus = gas == null
+        ? '--'
+      : _evaluateStatusInRange(
+            value: gas,
+        min: gasMin,
+        max: gasMax,
+          );
+
     final containerName = ContainerService.selectedContainer.value?.name ?? 'Container';
 
     // Generate dynamic alerts based on real data
     final alerts = <Map<String, dynamic>>[];
 
-    if (temp > 35) {
+    if (tempStatus == 'CRITICAL' && temp != null) {
       alerts.add({
         'title': 'Critical Temperature',
         'desc': '$containerName temperature: ${temp.toStringAsFixed(1)}°C',
@@ -154,9 +195,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'type': 'critical',
         'icon': Icons.thermostat,
       });
-    } else if (temp > 28) {
+    } else if (tempStatus == 'WARNING' && temp != null) {
       alerts.add({
-        'title': 'High Temperature',
+        'title': 'Temperature Warning',
         'desc': '$containerName temperature: ${temp.toStringAsFixed(1)}°C',
         'time': _lastUpdated,
         'date': 'Today',
@@ -165,27 +206,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     }
 
-    if (hum > 85) {
+    if (humStatus == 'CRITICAL' && hum != null) {
       alerts.add({
         'title': 'Critical Humidity',
-        'desc': '$containerName humidity > 85%',
+        'desc': '$containerName humidity: ${hum.toStringAsFixed(0)}%',
         'time': _lastUpdated,
         'date': 'Today',
         'type': 'critical',
         'icon': Icons.water_drop,
       });
-    } else if (hum > 70) {
+    } else if (humStatus == 'WARNING' && hum != null) {
       alerts.add({
-        'title': 'High Humidity',
-        'desc': '$containerName humidity: ${hum.toStringAsFixed(0)}%',
-        'time': _lastUpdated,
-        'date': 'Today',
-        'type': 'warning',
-        'icon': Icons.water_drop,
-      });
-    } else if (hum < 30) {
-      alerts.add({
-        'title': 'Low Humidity',
+        'title': 'Humidity Warning',
         'desc': '$containerName humidity: ${hum.toStringAsFixed(0)}%',
         'time': _lastUpdated,
         'date': 'Today',
@@ -194,8 +226,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     }
 
+    if (lightStatus == 'CRITICAL' && light != null) {
+      alerts.add({
+        'title': 'Critical Light Level',
+        'desc': '$containerName light: ${light.toStringAsFixed(0)}%',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'critical',
+        'icon': Icons.light_mode_outlined,
+      });
+    } else if (lightStatus == 'WARNING' && light != null) {
+      alerts.add({
+        'title': 'Light Warning',
+        'desc': '$containerName light: ${light.toStringAsFixed(0)}%',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'warning',
+        'icon': Icons.light_mode_outlined,
+      });
+    }
+
+    if (gasStatus == 'CRITICAL' && gas != null) {
+      alerts.add({
+        'title': 'Critical Gas Level',
+        'desc': '$containerName gas: ${gas.toStringAsFixed(0)} ppm',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'critical',
+        'icon': Icons.co2,
+      });
+    } else if (gasStatus == 'WARNING' && gas != null) {
+      alerts.add({
+        'title': 'Gas Warning',
+        'desc': '$containerName gas: ${gas.toStringAsFixed(0)} ppm',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'warning',
+        'icon': Icons.co2,
+      });
+    }
+
+    final hasAnySensorData = temp != null || hum != null || light != null || gas != null;
+
+    if (!hasAnySensorData) {
+      alerts.add({
+        'title': 'Waiting For Sensor Data',
+        'desc': 'No live sensor values available for $containerName yet',
+        'time': _lastUpdated,
+        'date': 'Today',
+        'type': 'info',
+        'icon': Icons.sensors,
+      });
+    }
+
     // Add success alert if all is good
-    if (alerts.isEmpty) {
+    if (alerts.isEmpty && hasAnySensorData) {
       alerts.add({
         'title': 'System Check',
         'desc': 'All sensors nominal for $containerName',
@@ -441,10 +526,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final light = (_containerData?['light_level'] as num?)?.toDouble();
       final gas = (_containerData?['gas_level'] as num?)?.toDouble();
 
-      final targetTemp = (_containerData?['target_temperature'] as num?)?.toDouble() ?? 28.0;
-      final targetHum = (_containerData?['target_humidity'] as num?)?.toDouble() ?? 65.0;
-      final targetLight = (_containerData?['target_light_level'] as num?)?.toDouble() ?? 75.0;
-      final targetGas = (_containerData?['target_gas_level'] as num?)?.toDouble() ?? 350.0;
+      final tempMin = (_containerData?['target_temperature_min'] as num?)?.toDouble() ?? 20.0;
+      final tempMax = (_containerData?['target_temperature'] as num?)?.toDouble() ?? 28.0;
+      final humMin = (_containerData?['target_humidity_min'] as num?)?.toDouble() ?? 40.0;
+      final humMax = (_containerData?['target_humidity'] as num?)?.toDouble() ?? 65.0;
+      final lightMin = (_containerData?['target_light_level_min'] as num?)?.toDouble() ?? 30.0;
+      final lightMax = (_containerData?['target_light_level'] as num?)?.toDouble() ?? 75.0;
+      final gasMin = (_containerData?['target_gas_level_min'] as num?)?.toDouble() ?? 1000.0;
+      final gasMax = (_containerData?['target_gas_level'] as num?)?.toDouble() ?? 2000.0;
 
       pdf.addPage(
         pw.MultiPage(
@@ -459,10 +548,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             pw.TableHelper.fromTextArray(
               headers: const ['Metric', 'Value', 'Target', 'Status'],
               data: [
-                ['Temperature', temp == null ? '--' : '${temp.toStringAsFixed(1)} °C', '${targetTemp.toStringAsFixed(1)} °C', temp == null ? '--' : _evaluateStatus(value: temp, target: targetTemp, safeDelta: 1.0, warningDelta: 3.0, higherIsWorse: true)],
-                ['Humidity', hum == null ? '--' : '${hum.toStringAsFixed(0)} %', '${targetHum.toStringAsFixed(0)} %', hum == null ? '--' : _evaluateStatus(value: hum, target: targetHum, safeDelta: 5.0, warningDelta: 10.0, higherIsWorse: false, symmetric: true)],
-                ['Light', light == null ? '--' : '${light.toStringAsFixed(0)} %', '${targetLight.toStringAsFixed(0)} %', light == null ? '--' : _evaluateStatus(value: light, target: targetLight, safeDelta: 5.0, warningDelta: 15.0, higherIsWorse: true)],
-                ['Gas', gas == null ? '--' : '${gas.toStringAsFixed(0)} ppm', '${targetGas.toStringAsFixed(0)} ppm', gas == null ? '--' : _evaluateStatus(value: gas, target: targetGas, safeDelta: 25.0, warningDelta: 75.0, higherIsWorse: true)],
+                ['Temperature', temp == null ? '--' : '${temp.toStringAsFixed(1)} °C', '${tempMin.toStringAsFixed(1)}-${tempMax.toStringAsFixed(1)} °C', temp == null ? '--' : _evaluateStatusInRange(value: temp, min: tempMin, max: tempMax)],
+                ['Humidity', hum == null ? '--' : '${hum.toStringAsFixed(0)} %', '${humMin.toStringAsFixed(0)}-${humMax.toStringAsFixed(0)} %', hum == null ? '--' : _evaluateStatusInRange(value: hum, min: humMin, max: humMax)],
+                ['Light', light == null ? '--' : '${light.toStringAsFixed(0)} %', '${lightMin.toStringAsFixed(0)}-${lightMax.toStringAsFixed(0)} %', light == null ? '--' : _evaluateStatusInRange(value: light, min: lightMin, max: lightMax)],
+                ['Gas', gas == null ? '--' : '${gas.toStringAsFixed(0)} ppm', '${gasMin.toStringAsFixed(0)}-${gasMax.toStringAsFixed(0)} ppm', gas == null ? '--' : _evaluateStatusInRange(value: gas, min: gasMin, max: gasMax)],
               ],
             ),
             pw.SizedBox(height: 16),
@@ -739,47 +828,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final light = (_containerData?['light_level'] as num?)?.toDouble();
     final gas = (_containerData?['gas_level'] as num?)?.toDouble();
 
-    final targetTemp = (_containerData?['target_temperature'] as num?)?.toDouble() ?? 28.0;
-    final targetHum = (_containerData?['target_humidity'] as num?)?.toDouble() ?? 65.0;
-    final targetLight = (_containerData?['target_light_level'] as num?)?.toDouble() ?? 75.0;
-    final targetGas = (_containerData?['target_gas_level'] as num?)?.toDouble() ?? 350.0;
+    final tempMin = (_containerData?['target_temperature_min'] as num?)?.toDouble() ?? 20.0;
+    final tempMax = (_containerData?['target_temperature'] as num?)?.toDouble() ?? 28.0;
+    final humMin = (_containerData?['target_humidity_min'] as num?)?.toDouble() ?? 40.0;
+    final humMax = (_containerData?['target_humidity'] as num?)?.toDouble() ?? 65.0;
+    final lightMin = (_containerData?['target_light_level_min'] as num?)?.toDouble() ?? 30.0;
+    final lightMax = (_containerData?['target_light_level'] as num?)?.toDouble() ?? 75.0;
+    final gasMin = (_containerData?['target_gas_level_min'] as num?)?.toDouble() ?? 1000.0;
+    final gasMax = (_containerData?['target_gas_level'] as num?)?.toDouble() ?? 2000.0;
 
     final tempStatus = temp == null
         ? '--'
-        : _evaluateStatus(
+      : _evaluateStatusInRange(
             value: temp,
-            target: targetTemp,
-            safeDelta: 1.0,
-            warningDelta: 3.0,
-            higherIsWorse: true,
+        min: tempMin,
+        max: tempMax,
           );
     final humStatus = hum == null
         ? '--'
-        : _evaluateStatus(
+      : _evaluateStatusInRange(
             value: hum,
-            target: targetHum,
-            safeDelta: 5.0,
-            warningDelta: 10.0,
-            higherIsWorse: false,
-            symmetric: true,
+        min: humMin,
+        max: humMax,
           );
     final lightStatus = light == null
         ? '--'
-        : _evaluateStatus(
+      : _evaluateStatusInRange(
             value: light,
-            target: targetLight,
-            safeDelta: 5.0,
-            warningDelta: 15.0,
-            higherIsWorse: true,
+        min: lightMin,
+        max: lightMax,
           );
     final gasStatus = gas == null
         ? '--'
-        : _evaluateStatus(
+      : _evaluateStatusInRange(
             value: gas,
-            target: targetGas,
-            safeDelta: 25.0,
-            warningDelta: 75.0,
-            higherIsWorse: true,
+        min: gasMin,
+        max: gasMax,
           );
 
     return Column(
@@ -814,7 +898,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 label: 'Temperature',
                 value: _isLoading || temp == null ? '--' : temp.toStringAsFixed(1),
                 unit: '°C',
-                progress: (temp != null && targetTemp > 0 ? (temp / (targetTemp * 1.25)) : 0).clamp(0.0, 1.0).toDouble(),
+                progress: (temp != null && tempMax > 0 ? (temp / (tempMax * 1.25)) : 0).clamp(0.0, 1.0).toDouble(),
                 progressColor: AppColors.temperature,
                 status: tempStatus,
                 statusColor: _getStatusColor(tempStatus),
@@ -846,7 +930,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 label: 'Light',
                 value: _isLoading || light == null ? '--' : light.toStringAsFixed(0),
                 unit: '%',
-                progress: (light != null && targetLight > 0 ? (light / (targetLight * 1.25)) : 0).clamp(0.0, 1.0).toDouble(),
+                progress: (light != null && lightMax > 0 ? (light / (lightMax * 1.25)) : 0).clamp(0.0, 1.0).toDouble(),
                 progressColor: Colors.amber,
                 status: lightStatus,
                 statusColor: _getStatusColor(lightStatus),
@@ -860,7 +944,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 label: 'Gas',
                 value: _isLoading || gas == null ? '--' : gas.toStringAsFixed(0),
                 unit: 'ppm',
-                progress: (gas != null && targetGas > 0 ? (gas / (targetGas * 1.25)) : 0).clamp(0.0, 1.0).toDouble(),
+                progress: (gas != null && gasMax > 0 ? (gas / (gasMax * 1.25)) : 0).clamp(0.0, 1.0).toDouble(),
                 progressColor: Colors.deepOrange,
                 status: gasStatus,
                 statusColor: _getStatusColor(gasStatus),
@@ -1257,30 +1341,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  String _evaluateStatus({
+  String _evaluateStatusInRange({
     required double value,
-    required double target,
-    required double safeDelta,
-    required double warningDelta,
-    required bool higherIsWorse,
-    bool symmetric = false,
+    required double min,
+    required double max,
+    double warningBandRatio = 0.1,
   }) {
-    if (symmetric) {
-      final diff = (value - target).abs();
-      if (diff <= safeDelta) return 'SAFE';
-      if (diff <= warningDelta) return 'WARNING';
+    final lower = min <= max ? min : max;
+    final upper = max >= min ? max : min;
+
+    if (value < lower || value > upper) {
       return 'CRITICAL';
     }
 
-    if (higherIsWorse) {
-      if (value <= target) return 'SAFE';
-      if (value <= target + warningDelta) return 'WARNING';
-      return 'CRITICAL';
+    final range = upper - lower;
+    if (range <= 0) {
+      return 'SAFE';
     }
 
-    if (value >= target) return 'SAFE';
-    if (value >= target - warningDelta) return 'WARNING';
-    return 'CRITICAL';
+    final warningBand = range * warningBandRatio;
+    final nearLower = (value - lower) <= warningBand;
+    final nearUpper = (upper - value) <= warningBand;
+    if (nearLower || nearUpper) {
+      return 'WARNING';
+    }
+
+    return 'SAFE';
   }
 
   Color _getStatusColor(String status) {

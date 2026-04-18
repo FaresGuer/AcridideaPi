@@ -20,6 +20,8 @@ class LoginResult {
 }
 
 class AuthService {
+  static const Duration _requestTimeout = Duration(seconds: 15);
+
   static String get _baseUrl {
     if (kIsWeb) return 'http://localhost:8000';
     try {
@@ -41,6 +43,16 @@ class AuthService {
   static final ValueNotifier<AuthUser?> currentUser = ValueNotifier<AuthUser?>(null);
 
   static String? get token => _token;
+
+  static Future<http.Response> _withTimeout(
+    Future<http.Response> request,
+    String action,
+  ) {
+    return request.timeout(
+      _requestTimeout,
+      onTimeout: () => throw Exception('$action timed out. Please try again.'),
+    );
+  }
 
   /// Initialize authentication - load saved session if available
   static Future<void> initializeAuth() async {
@@ -79,15 +91,18 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    final tokenResponse = await http.post(
-      Uri.parse('$_baseUrl/token'),
-      headers: const {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: {
-        'username': email,
-        'password': password,
-      },
+    final tokenResponse = await _withTimeout(
+      http.post(
+        Uri.parse('$_baseUrl/token'),
+        headers: const {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'username': email,
+          'password': password,
+        },
+      ),
+      'Sign in request',
     );
 
     if (tokenResponse.statusCode != 200) {
@@ -119,15 +134,18 @@ class AuthService {
     required String verificationToken,
     required String code,
   }) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/token/verify-2fa'),
-      headers: const {
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'verification_token': verificationToken,
-        'code': code,
-      }),
+    final response = await _withTimeout(
+      http.post(
+        Uri.parse('$_baseUrl/token/verify-2fa'),
+        headers: const {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'verification_token': verificationToken,
+          'code': code,
+        }),
+      ),
+      'Two-factor verification',
     );
 
     if (response.statusCode != 200) {
@@ -149,11 +167,14 @@ class AuthService {
       throw Exception('Not logged in');
     }
 
-    final meResponse = await http.get(
-      Uri.parse('$_baseUrl/users/me'),
-      headers: {
-        'Authorization': 'Bearer $_token',
-      },
+    final meResponse = await _withTimeout(
+      http.get(
+        Uri.parse('$_baseUrl/users/me'),
+        headers: {
+          'Authorization': 'Bearer $_token',
+        },
+      ),
+      'Loading user profile',
     );
 
     if (meResponse.statusCode != 200) {
@@ -303,19 +324,25 @@ class AuthService {
   }
 
   static Future<http.Response> _getWithWorkerFallback(String path) async {
-    final primary = await http.get(
-      Uri.parse('$_baseUrl$path'),
-      headers: {
-        'Authorization': 'Bearer $_token',
-      },
-    );
-
-    if (primary.statusCode == 404) {
-      return http.get(
-        Uri.parse('$_mobileBackendBaseUrl$path'),
+    final primary = await _withTimeout(
+      http.get(
+        Uri.parse('$_baseUrl$path'),
         headers: {
           'Authorization': 'Bearer $_token',
         },
+      ),
+      'Loading data',
+    );
+
+    if (primary.statusCode == 404) {
+      return _withTimeout(
+        http.get(
+          Uri.parse('$_mobileBackendBaseUrl$path'),
+          headers: {
+            'Authorization': 'Bearer $_token',
+          },
+        ),
+        'Loading fallback data',
       );
     }
 
@@ -323,23 +350,29 @@ class AuthService {
   }
 
   static Future<http.Response> _postWithWorkerFallback(String path, {Object? body}) async {
-    final primary = await http.post(
-      Uri.parse('$_baseUrl$path'),
-      headers: {
-        'Authorization': 'Bearer $_token',
-        'Content-Type': 'application/json',
-      },
-      body: body,
-    );
-
-    if (primary.statusCode == 404) {
-      return http.post(
-        Uri.parse('$_mobileBackendBaseUrl$path'),
+    final primary = await _withTimeout(
+      http.post(
+        Uri.parse('$_baseUrl$path'),
         headers: {
           'Authorization': 'Bearer $_token',
           'Content-Type': 'application/json',
         },
         body: body,
+      ),
+      'Saving data',
+    );
+
+    if (primary.statusCode == 404) {
+      return _withTimeout(
+        http.post(
+          Uri.parse('$_mobileBackendBaseUrl$path'),
+          headers: {
+            'Authorization': 'Bearer $_token',
+            'Content-Type': 'application/json',
+          },
+          body: body,
+        ),
+        'Saving fallback data',
       );
     }
 
@@ -347,19 +380,25 @@ class AuthService {
   }
 
   static Future<http.Response> _deleteWithWorkerFallback(String path) async {
-    final primary = await http.delete(
-      Uri.parse('$_baseUrl$path'),
-      headers: {
-        'Authorization': 'Bearer $_token',
-      },
-    );
-
-    if (primary.statusCode == 404) {
-      return http.delete(
-        Uri.parse('$_mobileBackendBaseUrl$path'),
+    final primary = await _withTimeout(
+      http.delete(
+        Uri.parse('$_baseUrl$path'),
         headers: {
           'Authorization': 'Bearer $_token',
         },
+      ),
+      'Deleting data',
+    );
+
+    if (primary.statusCode == 404) {
+      return _withTimeout(
+        http.delete(
+          Uri.parse('$_mobileBackendBaseUrl$path'),
+          headers: {
+            'Authorization': 'Bearer $_token',
+          },
+        ),
+        'Deleting fallback data',
       );
     }
 
@@ -396,11 +435,14 @@ class AuthService {
       throw Exception('Not logged in');
     }
 
-    final response = await http.get(
-      Uri.parse('$_baseUrl/containers'),
-      headers: {
-        'Authorization': 'Bearer $_token',
-      },
+    final response = await _withTimeout(
+      http.get(
+        Uri.parse('$_baseUrl/containers'),
+        headers: {
+          'Authorization': 'Bearer $_token',
+        },
+      ),
+      'Loading containers',
     );
 
     if (response.statusCode != 200) {

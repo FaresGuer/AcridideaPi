@@ -5,11 +5,15 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import timedelta, datetime
 from uuid import uuid4
+import base64
 import json
 from email.mime.text import MIMEText
 import os
 import random
 import smtplib
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 from dotenv import load_dotenv
 
 from database import Base, engine, get_db, SessionLocal
@@ -85,8 +89,23 @@ load_dotenv()
 
 TWO_FACTOR_CODE_EXPIRY_MINUTES = int(os.getenv("TWO_FACTOR_CODE_EXPIRY_MINUTES", "10"))
 GATEWAY_FRESHNESS_SECONDS = int(os.getenv("GATEWAY_FRESHNESS_SECONDS", "15"))
+CRITICAL_ALERT_PHONE = os.getenv("CRITICAL_ALERT_PHONE", "+216 98264250")
 _two_factor_challenges: dict[str, dict] = {}
 _password_reset_challenges: dict[str, dict] = {}  # For password reset flow
+_critical_state_cache: dict[tuple[int, str], bool] = {}
+
+
+def _resolve_min_max(min_value: float | None, max_value: float | None):
+    """Return a normalized (min, max) tuple when at least one bound exists."""
+    if min_value is None and max_value is None:
+        return None, None
+    if min_value is None:
+        min_value = max_value
+    if max_value is None:
+        max_value = min_value
+    if min_value is not None and max_value is not None and min_value > max_value:
+        min_value, max_value = max_value, min_value
+    return min_value, max_value
 
 
 def _is_gateway_fresh(data) -> bool:
@@ -110,6 +129,13 @@ def _ensure_user_schema_columns() -> None:
                     "ADD COLUMN two_factor_enabled BOOLEAN NOT NULL DEFAULT FALSE"
                 )
             )
+
+        # Remove legacy per-user SMS column; alerts now use a single global phone number.
+        legacy_phone_column = connection.execute(
+            text("SHOW COLUMNS FROM users LIKE 'phone_number'")
+        ).first()
+        if legacy_phone_column is not None:
+            connection.execute(text("ALTER TABLE users DROP COLUMN phone_number"))
 
 
 def _ensure_container_data_schema_columns() -> None:
@@ -221,6 +247,64 @@ def _ensure_container_data_schema_columns() -> None:
                 "UPDATE container_data "
                 "SET target_gas_level = gas_level "
                 "WHERE target_gas_level IS NULL AND gas_level IS NOT NULL"
+            )
+        )
+
+        # Backfill thresholds for legacy rows to ensure alert logic always has bounds.
+        connection.execute(
+            text(
+                "UPDATE container_data "
+                "SET target_temperature = 25.0 "
+                "WHERE target_temperature IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE container_data "
+                "SET target_temperature_min = 20.0 "
+                "WHERE target_temperature_min IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE container_data "
+                "SET target_humidity = 60.0 "
+                "WHERE target_humidity IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE container_data "
+                "SET target_humidity_min = 40.0 "
+                "WHERE target_humidity_min IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE container_data "
+                "SET target_light_level = 75.0 "
+                "WHERE target_light_level IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE container_data "
+                "SET target_light_level_min = 30.0 "
+                "WHERE target_light_level_min IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE container_data "
+                "SET target_gas_level = 350.0 "
+                "WHERE target_gas_level IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE container_data "
+                "SET target_gas_level_min = 150.0 "
+                "WHERE target_gas_level_min IS NULL"
             )
         )
 
@@ -342,6 +426,149 @@ def _send_email(to_email: str, subject: str, body: str) -> bool:
     except Exception as exc:
         print(f"Failed to send 2FA email: {exc}")
         return False
+
+
+def _normalize_phone_number(phone_number: str | None) -> str | None:
+    if not phone_number:
+        return None
+    normalized = "".join(ch for ch in phone_number if ch.isdigit() or ch == "+")
+    return normalized or None
+
+
+def _send_sms(to_phone: str, body: str) -> bool:
+    """Send SMS through Twilio. In development without config, log to console."""
+    twilio_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
+    twilio_from = os.getenv("TWILIO_FROM_PHONE")
+
+    if not twilio_sid or not twilio_token or not twilio_from:
+        print(f"[SMS DEV] To: {to_phone} | Body: {body}")
+        return True
+
+    api_url = f"https://api.twilio.com/2010-04-01/Accounts/{twilio_sid}/Messages.json"
+    payload = urlencode({"From": twilio_from, "To": to_phone, "Body": body}).encode("utf-8")
+    request = Request(api_url, data=payload, method="POST")
+    auth = base64.b64encode(f"{twilio_sid}:{twilio_token}".encode("utf-8")).decode("ascii")
+    request.add_header("Authorization", f"Basic {auth}")
+    request.add_header("Content-Type", "application/x-www-form-urlencoded")
+
+    try:
+        with urlopen(request, timeout=20) as response:
+            return 200 <= response.status < 300
+    except HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="ignore")
+        print(f"Failed to send SMS ({exc.code}): {error_body}")
+        return False
+    except Exception as exc:
+        print(f"Failed to send SMS: {exc}")
+        return False
+
+
+def _build_critical_sensor_messages(data) -> dict[str, str | None]:
+    temp_min, temp_max = _resolve_min_max(data.target_temperature_min, data.target_temperature)
+    humidity_min, humidity_max = _resolve_min_max(data.target_humidity_min, data.target_humidity)
+    light_min, light_max = _resolve_min_max(data.target_light_level_min, data.target_light_level)
+    gas_min, gas_max = _resolve_min_max(data.target_gas_level_min, data.target_gas_level)
+
+    # Fallback defaults for legacy rows that may still have null thresholds.
+    if temp_min is None and temp_max is None:
+        temp_min, temp_max = 20.0, 25.0
+    if humidity_min is None and humidity_max is None:
+        humidity_min, humidity_max = 40.0, 60.0
+    if light_min is None and light_max is None:
+        light_min, light_max = 30.0, 75.0
+    if gas_min is None and gas_max is None:
+        gas_min, gas_max = 150.0, 350.0
+
+    critical_messages: dict[str, str | None] = {
+        "temperature_low": None,
+        "temperature_high": None,
+        "humidity_low": None,
+        "humidity_high": None,
+        "light_low": None,
+        "light_high": None,
+        "gas_low": None,
+        "gas_high": None,
+    }
+
+    if data.temperature is not None and temp_min is not None and data.temperature < temp_min:
+        critical_messages["temperature_low"] = (
+            f"Temperature is low ({data.temperature:.2f}C). Minimum is {temp_min:.2f}C."
+        )
+    if data.temperature is not None and temp_max is not None and data.temperature > temp_max:
+        critical_messages["temperature_high"] = (
+            f"Temperature is high ({data.temperature:.2f}C). Maximum is {temp_max:.2f}C."
+        )
+
+    if data.humidity is not None and humidity_min is not None and data.humidity < humidity_min:
+        critical_messages["humidity_low"] = (
+            f"Humidity is low ({data.humidity:.2f}%). Minimum is {humidity_min:.2f}%."
+        )
+    if data.humidity is not None and humidity_max is not None and data.humidity > humidity_max:
+        critical_messages["humidity_high"] = (
+            f"Humidity is high ({data.humidity:.2f}%). Maximum is {humidity_max:.2f}%."
+        )
+
+    if data.light_level is not None and light_min is not None and data.light_level < light_min:
+        critical_messages["light_low"] = (
+            f"Light level is low ({data.light_level:.2f}). Minimum is {light_min:.2f}."
+        )
+    if data.light_level is not None and light_max is not None and data.light_level > light_max:
+        critical_messages["light_high"] = (
+            f"Light level is high ({data.light_level:.2f}). Maximum is {light_max:.2f}."
+        )
+
+    if data.gas_level is not None and gas_min is not None and data.gas_level < gas_min:
+        critical_messages["gas_low"] = (
+            f"Gas level is low ({data.gas_level:.2f} ppm). Minimum is {gas_min:.2f} ppm."
+        )
+    if data.gas_level is not None and gas_max is not None and data.gas_level > gas_max:
+        critical_messages["gas_high"] = (
+            f"Gas level is high ({data.gas_level:.2f} ppm). Maximum is {gas_max:.2f} ppm."
+        )
+
+    return critical_messages
+
+
+def _get_container_recipients() -> list[str]:
+    normalized_phone = _normalize_phone_number(CRITICAL_ALERT_PHONE)
+    if not normalized_phone:
+        return []
+    return [normalized_phone]
+
+
+def _notify_container_critical_states(container: Container, data) -> None:
+    critical_messages = _build_critical_sensor_messages(data)
+    newly_triggered: list[str] = []
+
+    for condition_key, message in critical_messages.items():
+        cache_key = (container.id, condition_key)
+        was_critical = _critical_state_cache.get(cache_key, False)
+        is_critical = message is not None
+
+        if is_critical and not was_critical and message is not None:
+            newly_triggered.append(message)
+
+        _critical_state_cache[cache_key] = is_critical
+
+    if not newly_triggered:
+        return
+
+    recipients = _get_container_recipients()
+    if not recipients:
+        print(
+            f"No SMS recipients for critical alert in container {container.id} ({container.name})."
+        )
+        return
+
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    for message in newly_triggered:
+        sms_body = (
+            f"Critical alert for {container.name}: {message} "
+            f"Detected at {timestamp}."
+        )
+        for recipient in recipients:
+            _send_sms(recipient, sms_body)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -824,6 +1051,10 @@ async def get_container_data_endpoint(
     elif not _is_gateway_fresh(data):
         data = reconcile_container_actuators(db, container_id)
 
+    # Evaluate critical-state transitions on reads as well, so alerts still
+    # fire when sensor values are updated by external writers.
+    _notify_container_critical_states(db_container, data)
+
     record_container_sensor_history_snapshot(db, container_id, data)
 
     return data
@@ -861,12 +1092,15 @@ async def update_container_data_endpoint(
     existing_data = get_container_data(db, container_id)
     gateway_fresh = _is_gateway_fresh(existing_data)
 
-    return update_container_data(
+    updated_data = update_container_data(
         db,
         container_id,
         data_update,
         apply_automatic_logic=not gateway_fresh,
     )
+
+    _notify_container_critical_states(db_container, updated_data)
+    return updated_data
 
 
 @app.get("/containers/{container_id}/history", response_model=list[ContainerSensorHistoryResponse])

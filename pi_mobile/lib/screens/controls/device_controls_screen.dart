@@ -12,6 +12,9 @@ class DeviceControlsScreen extends StatefulWidget {
 }
 
 class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
+  static const double _gasSliderMin = 1000.0;
+  static const double _gasSliderMax = 3000.0;
+
   // Manual Control States
   bool _ventilationActive = true;
   bool _humidifierActive = false;
@@ -25,8 +28,8 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
   double _humidityThreshold = 65.0;
   double _lightMinThreshold = 30.0;
   double _lightThreshold = 75.0;
-  double _gasMinThreshold = 150.0;
-  double _gasThreshold = 350.0;
+  double _gasMinThreshold = _gasSliderMin;
+  double _gasThreshold = 2000.0;
   bool _isLoading = true;
   Timer? _refreshTimer;
 
@@ -73,6 +76,11 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
         _lightThreshold = (data['target_light_level'] as num?)?.toDouble() ?? _lightThreshold;
         _gasMinThreshold = (data['target_gas_level_min'] as num?)?.toDouble() ?? _gasMinThreshold;
         _gasThreshold = (data['target_gas_level'] as num?)?.toDouble() ?? _gasThreshold;
+        _gasMinThreshold = _gasMinThreshold.clamp(_gasSliderMin, _gasSliderMax).toDouble();
+        _gasThreshold = _gasThreshold.clamp(_gasSliderMin, _gasSliderMax).toDouble();
+        if (_gasMinThreshold > _gasThreshold) {
+          _gasMinThreshold = _gasThreshold;
+        }
         _isLoading = false;
       });
     } catch (_) {
@@ -341,8 +349,8 @@ class _DeviceControlsScreenState extends State<DeviceControlsScreen> {
                 minThresholdValue: _gasMinThreshold,
                 value: _gasThreshold,
                 unit: 'ppm',
-                min: 0,
-                max: 1000,
+                min: _gasSliderMin,
+                max: _gasSliderMax,
                 icon: Icons.co2,
                 iconColor: Color(0xFFE65100),
                 iconBgColor: Color(0xFFFFF3E0),

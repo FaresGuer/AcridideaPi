@@ -73,7 +73,22 @@ class _ContainerRouterState extends State<ContainerRouter> {
                   SizedBox(height: 16),
                   Text('Error loading containers'),
                   SizedBox(height: 8),
-                  Text(snapshot.error.toString()),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      snapshot.error.toString(),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _containersFuture = AuthService.fetchContainers();
+                      });
+                    },
+                    child: Text('Retry'),
+                  ),
                 ],
               ),
             ),
