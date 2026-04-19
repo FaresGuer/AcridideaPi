@@ -7,7 +7,6 @@ from schemas import (
     ContainerCreate,
     ContainerUpdate,
     ContainerDataUpdate,
-    ContainerSensorHistoryResponse,
     FeedingScheduleCreate,
     FeedingScheduleUpdate,
 )
