@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Industrial IoT - Container Registration</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#3ce619",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#142111",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>body {
+    font-family: "Space Grotesk", sans-serif
+    }
+.glass-card {
+    background: rgba(20, 33, 17, 0.75);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(60, 230, 25, 0.15)
+    }
+.bg-blur-image {
+    background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuA0St_CT5s5jXwDVELEyzOedgFwAtv7TpB3vv4jShedkpAg7_P_QFEyjPcKbpMYBicmOSFCD2J0-qdSuqhFWFfBC3rp0gF0By_DzYhCgdkzrykl70TIHhPp22CgzIh_BHQT1OrBM5usKryyDgV61HSm0pNSDZe3xACHdX4D0hHz11wdRpDiHgYbXU2XXUMcSeqqQPg_kVffH_43h-IkqdEwrptXsUjrb-ooLmxiAHtXXF5rcCcUWL8Gfw-6SLSYRtrBYT9IVg2fzpw);
+    background-size: cover;
+    background-position: center;
+    filter: blur(8px) brightness(0.4);
+    position: absolute;
+    inset: 0;
+    z-index: -1
+    }</style>
+</head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
+<!-- Background Layer -->
+<div class="bg-blur-image" data-alt="blurred high-tech automated vertical farm environment"></div>
+<!-- Navigation / Top Bar -->
+<nav class="absolute top-0 w-full flex items-center justify-between px-8 py-6 z-10">
+<div class="flex items-center gap-3">
+<div class="text-primary size-8">
+<svg fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M44 4H30.6666V17.3334H17.3334V30.6666H4V44H44V4Z" fill="currentColor"></path>
+</svg>
+</div>
+<h1 class="text-white text-xl font-bold tracking-tight uppercase">Industrial <span class="text-primary/80">IoT</span></h1>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-primary/20">
+<span class="size-2 bg-primary rounded-full animate-pulse"></span>
+<span class="text-[10px] font-medium text-primary uppercase tracking-widest">System Online</span>
+</div>
+<button class="text-white/60 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-2xl">help</span>
+</button>
+</div>
+</nav>
+<!-- Main Registration Container -->
+<main class="w-full max-w-xl px-6 py-12 z-10">
+<div class="glass-card rounded-xl p-8 md:p-12 shadow-2xl relative overflow-hidden">
+<!-- Security Header Badge -->
+<div class="flex justify-center mb-8">
+<div class="flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/30">
+<span class="material-symbols-outlined text-primary text-sm">shield_lock</span>
+<span class="text-[11px] font-bold text-primary uppercase tracking-widest">AES-256 Encrypted Connection</span>
+</div>
+</div>
+<!-- Form Title -->
+<div class="text-center mb-10">
+<h2 class="text-white text-3xl font-bold tracking-tight mb-2">Device Onboarding</h2>
+<p class="text-white/50 text-sm font-light">Register your hardware container to the secure agricultural network.</p>
+</div>
+<!-- Registration Form -->
+<form class="space-y-5">
+<!-- Full Name Field -->
+<div class="space-y-1.5">
+<label class="text-[11px] font-bold text-white/40 uppercase tracking-wider ml-1">Operator Full Name</label>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/30 group-focus-within:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">person</span>
+</div>
+<input class="w-full bg-black/40 border border-white/10 rounded-lg py-4 pl-12 pr-4 text-white placeholder:text-white/20 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none text-sm font-medium" placeholder="e.g. Erik Sorenson" type="text"/>
+</div>
+</div>
+<!-- Email Field -->
+<div class="space-y-1.5">
+<label class="text-[11px] font-bold text-white/40 uppercase tracking-wider ml-1">Work Email Address</label>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/30 group-focus-within:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">mail</span>
+</div>
+<input class="w-full bg-black/40 border border-white/10 rounded-lg py-4 pl-12 pr-4 text-white placeholder:text-white/20 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none text-sm font-medium" placeholder="operator@company.com" type="email"/>
+</div>
+</div>
+<!-- Container ID and Serial Number (Grid) -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+<div class="space-y-1.5">
+<label class="text-[11px] font-bold text-white/40 uppercase tracking-wider ml-1">Container ID</label>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/30 group-focus-within:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">inventory_2</span>
+</div>
+<input class="w-full bg-black/40 border border-white/10 rounded-lg py-4 pl-12 pr-4 text-white placeholder:text-white/20 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none text-sm font-medium" placeholder="CNT-8820" type="text"/>
+</div>
+</div>
+<div class="space-y-1.5">
+<label class="text-[11px] font-bold text-white/40 uppercase tracking-wider ml-1">Serial Number</label>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/30 group-focus-within:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">app_registration</span>
+</div>
+<input class="w-full bg-black/40 border border-white/10 rounded-lg py-4 pl-12 pr-4 text-white placeholder:text-white/20 focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none text-sm font-medium" placeholder="SN-XXXX-XXXX" type="text"/>
+</div>
+</div>
+</div>
+<!-- Registration Button -->
+<div class="pt-6">
+<button class="w-full bg-primary hover:bg-primary/90 text-black font-bold py-4 rounded-lg flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(60,230,25,0.3)] transition-all active:scale-[0.98]" type="submit">
+<span class="uppercase tracking-widest text-sm">Register Container</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</form>
+<!-- Card Footer -->
+<div class="mt-10 flex flex-col md:flex-row items-center justify-between border-t border-white/10 pt-6 gap-4">
+<a class="text-[11px] font-medium text-primary hover:underline uppercase tracking-wider flex items-center gap-1" href="#">
+<span class="material-symbols-outlined text-sm">contact_support</span>
+                    Help with ID location?
+                </a>
+<p class="text-[10px] text-white/30 uppercase tracking-tighter">Authorized Personnel Only</p>
+</div>
+</div>
+<!-- Bottom Global Info -->
+<div class="mt-8 flex justify-center gap-8">
+<div class="flex flex-col items-center">
+<span class="text-white/20 text-[10px] uppercase font-bold tracking-widest">Network Latency</span>
+<span class="text-primary/70 text-xs font-medium">12ms</span>
+</div>
+<div class="flex flex-col items-center border-l border-white/10 pl-8">
+<span class="text-white/20 text-[10px] uppercase font-bold tracking-widest">Uptime</span>
+<span class="text-primary/70 text-xs font-medium">99.98%</span>
+</div>
+<div class="flex flex-col items-center border-l border-white/10 pl-8">
+<span class="text-white/20 text-[10px] uppercase font-bold tracking-widest">Global Clusters</span>
+<span class="text-primary/70 text-xs font-medium">Active</span>
+</div>
+</div>
+</main>
+<!-- Visual Accents -->
+<div class="fixed bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full -z-10"></div>
+<div class="fixed top-[-10%] right-[-5%] w-[30%] h-[30%] bg-primary/10 blur-[100px] rounded-full -z-10"></div>
+</body></html>

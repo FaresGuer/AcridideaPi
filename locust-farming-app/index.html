@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" class="dark" id="root-html">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Locust Farming</title>
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <script>
+    // Initialize theme from localStorage before React renders
+    const savedTheme = localStorage.getItem('theme');
+    const isDark = savedTheme ? savedTheme === 'dark' : true;
+    const htmlElement = document.documentElement;
+
+    if (isDark) {
+      htmlElement.classList.add('dark');
+      htmlElement.classList.remove('light');
+    } else {
+      htmlElement.classList.add('light');
+      htmlElement.classList.remove('dark');
+    }
+  </script>
+</head>
+
+<body class="bg-background-light dark:bg-background-dark text-slate-custom dark:text-white antialiased">
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>

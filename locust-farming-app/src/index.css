@@ -1,0 +1,277 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #3ce619;
+  --color-background-light: #f6f8f6;
+  --color-background-dark: #142111;
+  --color-sage: #a2b89d;
+  --color-slate-custom: #2b3829;
+  --color-surface-dark: #1c2b1a;
+  --color-amber-alert: #ffc107;
+
+  --font-display: "Space Grotesk", sans-serif;
+  --font-sans: "Space Grotesk", sans-serif;
+}
+
+
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.glass-panel {
+  background: rgba(43, 56, 41, 0.4);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(162, 184, 157, 0.1);
+}
+
+.glass-card {
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(60, 230, 25, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+}
+
+.input-glow:focus-within {
+  box-shadow: 0 0 15px rgba(60, 230, 25, 0.2);
+  border-color: #3ce619;
+}
+
+.btn-glow:hover {
+  box-shadow: 0 0 20px rgba(60, 230, 25, 0.4);
+}
+
+.bg-blur-image {
+  background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuA0St_CT5s5jXwDVELEyzOedgFwAtv7TpB3vv4jShedkpAg7_P_QFEyjPcKbpMYBicmOSFCD2J0-qdSuqhFWFfBC3rp0gF0By_DzYhCgdkzrykl70TIHhPp22CgzIh_BHQT1OrBM5usKryyDgV61HSm0pNSDZe3xACHdX4D0hHz11wdRpDiHgYbXU2XXUMcSeqqQPg_kVffH_43h-IkqdEwrptXsUjrb-ooLmxiAHtXXF5rcCcUWL8Gfw-6SLSYRtrBYT9IVg2fzpw);
+  background-size: cover;
+  background-position: center;
+  filter: blur(8px) brightness(0.4);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-auto-rows: minmax(100px, auto);
+  gap: 1rem;
+}
+
+.scanline {
+  background: linear-gradient(to bottom, rgba(60, 230, 25, 0) 50%, rgba(60, 230, 25, 0.05) 50%);
+  background-size: 100% 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(60, 230, 25, 0.2);
+  border-radius: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(60, 230, 25, 0.4);
+}
+
+.grid-overlay {
+  background-image: linear-gradient(#1c2b1a 1px, transparent 1px), linear-gradient(90deg, #1c2b1a 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.status-glow {
+  box-shadow: 0 0 15px rgba(60, 230, 25, 0.3);
+}
+
+.heatmap-gradient {
+  background: radial-gradient(circle at 30% 40%, rgba(60, 230, 25, 0.4) 0%, transparent 40%),
+    radial-gradient(circle at 70% 60%, rgba(255, 193, 7, 0.4) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(0, 229, 255, 0.2) 0%, transparent 60%);
+}
+
+.prediction-shade {
+  background: linear-gradient(90deg, transparent 0%, rgba(60, 230, 25, 0.05) 100%);
+}
+
+.custom-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #3ce619;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+/* Light Mode Styles */
+html.light {
+  --color-primary: #15803d; /* Emerald 700 - Strong contrast against mint */
+  --color-background-light: #f0fbf4; /* A very light mint (almost white) for secondary backgrounds */
+  --color-background-dark: #defae9; /* RGB(222, 250, 233) - The requested main background */
+  --color-sage: #4d6b53;
+  --color-slate-custom: #143322; /* Very dark green for primary text */
+  --color-surface-dark: #e8fdf0; /* Lighter version of the main background for cards/surfaces */
+  --color-amber-alert: #d97706;
+}
+
+html.light body {
+  background-color: #defae9; /* RGB(222, 250, 233) */
+  background-image:
+    radial-gradient(at 0% 0%, rgba(255, 255, 255, 0.6) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(21, 128, 61, 0.08) 0px, transparent 50%);
+  color: #143322;
+}
+
+html.light .glass-panel {
+  background: rgba(222, 250, 233, 0.4); /* Based on main color */
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 6px -1px rgba(20, 51, 34, 0.05), 0 2px 4px -1px rgba(20, 51, 34, 0.03);
+}
+
+html.light .glass-card {
+  background: rgba(232, 253, 240, 0.75); /* Slighty lighter mint */
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 4px 10px -1px rgba(20, 51, 34, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+html.light .grid-overlay {
+  background-image: linear-gradient(#bfe8d1 1px, transparent 1px), linear-gradient(90deg, #bfe8d1 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.5;
+}
+
+html.light .bg-blur-image {
+  filter: blur(16px) opacity(0.08); /* Reduced opacity to keep the mint color dominant */
+  background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuA0St_CT5s5jXwDVELEyzOedgFwAtv7TpB3vv4jShedkpAg7_P_QFEyjPcKbpMYBicmOSFCD2J0-qdSuqhFWFfBC3rp0gF0By_DzYhCgdkzrykl70TIHhPp22CgzIh_BHQT1OrBM5usKryyDgV61HSm0pNSDZe3xACHdX4D0hHz11wdRpDiHgYbXU2XXUMcSeqqQPg_kVffH_43h-IkqdEwrptXsUjrb-ooLmxiAHtXXF5rcCcUWL8Gfw-6SLSYRtrBYT9IVg2fzpw);
+}
+
+html.light .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(20, 51, 34, 0.02);
+}
+
+html.light .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(21, 128, 61, 0.3);
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.4);
+}
+
+html.light .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(21, 128, 61, 0.5);
+}
+
+/* Light Mode Text Colors & Inputs */
+html.light {
+  color-scheme: light;
+}
+
+html.light * {
+  border-color: rgba(20, 51, 34, 0.08);
+}
+
+html.light input,
+html.light select,
+html.light textarea {
+  color: #143322;
+  background-color: rgba(255, 255, 255, 0.5); /* Semi-transparent white to let mint show through */
+  border: 1px solid rgba(20, 51, 34, 0.1);
+  box-shadow: 0 1px 2px rgba(20, 51, 34, 0.04);
+}
+
+html.light input:focus,
+html.light select:focus,
+html.light textarea:focus {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12);
+}
+
+html.light input::placeholder,
+html.light select::placeholder,
+html.light textarea::placeholder {
+  color: rgba(20, 51, 34, 0.35);
+}
+
+/* Adapt white text classes to dark green for light mode */
+html.light .text-white {
+  color: #143322;
+}
+
+html.light .text-white\/80 {
+  color: rgba(20, 51, 34, 0.85);
+}
+
+html.light .text-white\/60 {
+  color: rgba(20, 51, 34, 0.65);
+}
+
+html.light .text-white\/40 {
+  color: rgba(20, 51, 34, 0.45);
+}
+
+html.light .text-white\/30 {
+  color: rgba(20, 51, 34, 0.35);
+}
+
+html.light .text-white\/20 {
+  color: rgba(20, 51, 34, 0.25);
+}
+
+html.light .text-white\/10 {
+  color: rgba(20, 51, 34, 0.15);
+}
+
+html.light .text-white\/5 {
+  color: rgba(20, 51, 34, 0.08);
+}
+
+/* Inversion des bordures blanches */
+html.light .border-white\/10 {
+  border-color: rgba(20, 51, 34, 0.12);
+}
+html.light .border-white\/5 {
+  border-color: rgba(20, 51, 34, 0.06);
+}
+html.light .border-white\/20 {
+  border-color: rgba(20, 51, 34, 0.2);
+}
+
+/* Backgrounds spécifiques */
+html.light .bg-white\/5 {
+  background-color: rgba(20, 51, 34, 0.03);
+}
+html.light .bg-white\/10 {
+  background-color: rgba(20, 51, 34, 0.06);
+}
+html.light .bg-black\/20 {
+  background-color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255,255,255, 0.3);
+}
+html.light .bg-black\/40 {
+  background-color: rgba(255, 255, 255, 0.55);
+}
+html.light .bg-black\/60 {
+  background-color: rgba(255, 255, 255, 0.7);
+}
+html.light .bg-background-dark {
+  background-color: #defae9;
+}
+html.light .bg-surface-dark {
+  background-color: #e8fdf0;
+}
+html.light .bg-surface-dark\/50 {
+  background-color: rgba(232, 253, 240, 0.7);
+}
+html.light .bg-surface-dark\/80 {
+  background-color: rgba(232, 253, 240, 0.9);
+}

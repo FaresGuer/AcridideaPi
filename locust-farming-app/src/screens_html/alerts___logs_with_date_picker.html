@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Smart Locust Farming - Alerts &amp; Logs</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#3ce619",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#0a0c0a",
+                        "surface-dark": "#141a13",
+                        "card-dark": "#1c241b",
+                        "border-dark": "#2d382b",
+                        "critical": "#ef4444",
+                        "warning": "#f59e0b",
+                        "info": "#3b82f6"
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #0a0c0a;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #141a13;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #2d382b;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #3ce619;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<!-- 1. Sidebar Navigation -->
+<aside class="w-64 flex flex-col border-r border-border-dark bg-surface-dark shrink-0">
+<div class="p-6 flex items-center gap-3">
+<div class="size-10 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/40">
+<span class="material-symbols-outlined text-primary">bug_report</span>
+</div>
+<div>
+<h1 class="text-sm font-bold leading-none">Smart Locust</h1>
+<p class="text-[10px] text-primary/60 uppercase tracking-widest mt-1">Industrial Tech</p>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-2">
+<a class="flex items-center gap-3 px-3 py-2.5 text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 bg-primary/10 text-primary border border-primary/20 rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">notifications_active</span>
+<span class="text-sm font-medium">Alerts &amp; Logs</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined">memory</span>
+<span class="text-sm font-medium">Hardware</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-border-dark">
+<div class="flex items-center gap-3 p-2 rounded-lg bg-card-dark border border-border-dark">
+<div class="size-8 rounded bg-center bg-cover" data-alt="User avatar" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAajpuWivku-MIxYj9_OBcKIkJMxpcV_4W83uE3hivs8QSqUalabV6KToYUxKe5bHqIv9ISZubyZek4w3tQsnzF5eKflfbm2x8oAjfi0XvzCUEgUtHHx0CMp_VjtITNnKkvmUdObHJnQ6c5ih57xeoVqYj-sDwPumukdzjf_bHdWsQHkBHoqC-m2Y8uJXmDmBLbpbW1q2W7ehFR4bmPQ_vaPr94zqTSs4MeGu-VfrZX25I1h4JRTO7K73Ene3SmWhAPISEpznH6v5g')"></div>
+<div class="flex-1 min-w-0">
+<p class="text-xs font-bold truncate">Operator 042</p>
+<p class="text-[10px] text-white/40 truncate">System Admin</p>
+</div>
+<span class="material-symbols-outlined text-white/40 text-sm">logout</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="flex-1 flex flex-col min-w-0 bg-background-dark">
+<!-- 2. Header Section -->
+<header class="h-16 border-b border-border-dark px-8 flex items-center justify-between shrink-0">
+<div class="flex flex-col">
+<div class="flex items-center gap-2 text-[10px] text-white/40 uppercase tracking-widest">
+<span>System</span>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<span class="text-primary">Alerts &amp; Logs</span>
+</div>
+<h2 class="text-xl font-bold">System Alerts &amp; Telemetry Logs</h2>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 bg-card-dark border border-border-dark px-3 py-1.5 rounded-lg text-xs font-mono">
+<span class="size-2 rounded-full bg-primary animate-pulse"></span>
+                        LIVE TELEMETRY
+                    </div>
+<button class="material-symbols-outlined p-2 text-white/60 hover:text-white">help</button>
+</div>
+</header>
+<div class="flex-1 flex overflow-hidden">
+<!-- Center Feed -->
+<div class="flex-1 flex flex-col p-8 gap-6 overflow-hidden">
+<!-- 3. Top Filter Bar -->
+<div class="flex items-center gap-4 shrink-0">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-white/40">search</span>
+<input class="w-full bg-card-dark border border-border-dark rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-primary focus:border-primary transition-all" placeholder="Search logs by Container ID or keyword..." type="text"/>
+</div><div class="flex items-center gap-2 bg-card-dark border border-border-dark rounded-lg px-3 py-2 cursor-pointer hover:border-primary/40 transition-all group">
+<span class="material-symbols-outlined text-white/40 group-hover:text-primary text-sm">calendar_month</span>
+<div class="flex flex-col">
+<span class="text-[8px] uppercase tracking-widest text-white/40 font-bold leading-none">Date Range</span>
+<span class="text-xs font-mono text-white/80">Oct 01 - Oct 14</span>
+</div>
+<span class="material-symbols-outlined text-white/20 text-xs ml-1">expand_more</span>
+</div>
+<div class="flex bg-card-dark border border-border-dark rounded-lg p-1 gap-1">
+<button class="px-4 py-1.5 text-xs font-medium bg-primary text-black rounded transition-all">All</button>
+<button class="px-4 py-1.5 text-xs font-medium text-white/60 hover:text-white rounded flex items-center gap-2 transition-all">
+<span class="size-2 rounded-full bg-critical"></span> Critical
+                            </button>
+<button class="px-4 py-1.5 text-xs font-medium text-white/60 hover:text-white rounded flex items-center gap-2 transition-all">
+<span class="size-2 rounded-full bg-warning"></span> Warning
+                            </button>
+<button class="px-4 py-1.5 text-xs font-medium text-white/60 hover:text-white rounded flex items-center gap-2 transition-all">
+<span class="size-2 rounded-full bg-info"></span> Info
+                            </button>
+</div>
+</div>
+<!-- 4. Alert List -->
+<div class="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
+<!-- Alert Card: Critical -->
+<div class="relative bg-card-dark border border-border-dark rounded-lg overflow-hidden group hover:border-primary/30 transition-all">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-critical"></div>
+<div class="p-5 flex gap-5">
+<div class="size-12 bg-critical/10 rounded-lg flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-critical text-3xl">humidity_low</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-bold text-lg text-white">Humidity Failure</h3>
+<div class="flex items-center gap-3 font-mono text-xs text-white/40">
+<span class="bg-white/5 px-2 py-0.5 rounded border border-white/10">Container: <span class="text-white">A12</span></span>
+<span>10:42 AM</span>
+</div>
+</div>
+<p class="text-white/60 text-sm leading-relaxed max-w-2xl">
+                                        Sensor reading &lt; 30%. Critical threshold breach detected in sector 4. Automatic misting system failed to initialize. Immediate manual intervention required.
+                                    </p>
+<div class="mt-4 flex items-center gap-3">
+<button class="bg-primary text-black px-4 py-1.5 rounded text-xs font-bold hover:bg-primary/90 transition-colors uppercase tracking-wider">Acknowledge</button>
+<button class="bg-white/5 hover:bg-white/10 text-white px-4 py-1.5 rounded text-xs font-bold border border-white/10 transition-colors uppercase tracking-wider">Details</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Alert Card: Warning -->
+<div class="relative bg-card-dark border border-border-dark rounded-lg overflow-hidden group hover:border-primary/30 transition-all">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-warning"></div>
+<div class="p-5 flex gap-5">
+<div class="size-12 bg-warning/10 rounded-lg flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-warning text-3xl">thermostat</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-bold text-lg text-white">Thermal Deviation</h3>
+<div class="flex items-center gap-3 font-mono text-xs text-white/40">
+<span class="bg-white/5 px-2 py-0.5 rounded border border-white/10">Container: <span class="text-white">B04</span></span>
+<span>10:38 AM</span>
+</div>
+</div>
+<p class="text-white/60 text-sm leading-relaxed max-w-2xl">
+                                        Ambient temperature rising above 32°C. Internal cooling fans activated at 100%. Monitor closely for persistent climb.
+                                    </p>
+<div class="mt-4 flex items-center gap-3">
+<button class="bg-primary/20 text-primary px-4 py-1.5 rounded text-xs font-bold hover:bg-primary/30 transition-colors uppercase tracking-wider">Acknowledge</button>
+<button class="bg-white/5 hover:bg-white/10 text-white px-4 py-1.5 rounded text-xs font-bold border border-white/10 transition-colors uppercase tracking-wider">Details</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Alert Card: Info -->
+<div class="relative bg-card-dark border border-border-dark rounded-lg overflow-hidden group hover:border-primary/30 transition-all opacity-80">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-info"></div>
+<div class="p-5 flex gap-5">
+<div class="size-12 bg-info/10 rounded-lg flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-info text-3xl">sync</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-bold text-lg text-white">Routine Maintenance Sync</h3>
+<div class="flex items-center gap-3 font-mono text-xs text-white/40">
+<span class="bg-white/5 px-2 py-0.5 rounded border border-white/10">Container: <span class="text-white">SYS</span></span>
+<span>10:15 AM</span>
+</div>
+</div>
+<p class="text-white/60 text-sm leading-relaxed max-w-2xl">
+                                        Bi-hourly telemetry synchronization completed for all 48 active containers. Data packets offloaded to cloud storage.
+                                    </p>
+<div class="mt-4 flex items-center gap-3">
+<button class="bg-white/5 hover:bg-white/10 text-white px-4 py-1.5 rounded text-xs font-bold border border-white/10 transition-colors uppercase tracking-wider">Details</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Alert Card: Warning -->
+<div class="relative bg-card-dark border border-border-dark rounded-lg overflow-hidden group hover:border-primary/30 transition-all">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-warning"></div>
+<div class="p-5 flex gap-5">
+<div class="size-12 bg-warning/10 rounded-lg flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-warning text-3xl">co2</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-bold text-lg text-white">CO2 Level Spike</h3>
+<div class="flex items-center gap-3 font-mono text-xs text-white/40">
+<span class="bg-white/5 px-2 py-0.5 rounded border border-white/10">Container: <span class="text-white">C09</span></span>
+<span>09:55 AM</span>
+</div>
+</div>
+<p class="text-white/60 text-sm leading-relaxed max-w-2xl">
+                                        Carbon dioxide levels exceed 1200ppm in Breeding Chamber C09. Exhaust ventilation engaged at phase 2.
+                                    </p>
+<div class="mt-4 flex items-center gap-3">
+<button class="bg-primary/20 text-primary px-4 py-1.5 rounded text-xs font-bold hover:bg-primary/30 transition-colors uppercase tracking-wider">Acknowledge</button>
+<button class="bg-white/5 hover:bg-white/10 text-white px-4 py-1.5 rounded text-xs font-bold border border-white/10 transition-colors uppercase tracking-wider">Details</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 5. Right-hand 'Quick Stats' Panel -->
+<aside class="w-80 border-l border-border-dark bg-surface-dark flex flex-col p-6 gap-6">
+<div>
+<h3 class="text-sm font-bold uppercase tracking-widest text-white/40 mb-4">System Health</h3>
+<div class="bg-card-dark border border-border-dark rounded-xl p-5 relative overflow-hidden group">
+<div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl">speed</span>
+</div>
+<p class="text-xs text-white/40 font-mono mb-1">UPTIME</p>
+<div class="flex items-end gap-2">
+<span class="text-4xl font-bold leading-none">99.9</span>
+<span class="text-primary text-xl font-bold">%</span>
+</div>
+<div class="mt-4 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[99.9%]"></div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 gap-4">
+<div class="bg-card-dark border border-border-dark rounded-xl p-5">
+<p class="text-xs text-white/40 font-mono mb-1">ACTIVE CRITICALS</p>
+<div class="flex items-center justify-between">
+<span class="text-4xl font-bold text-critical">04</span>
+<div class="size-10 bg-critical/10 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-critical">priority_high</span>
+</div>
+</div>
+</div>
+<div class="bg-card-dark border border-border-dark rounded-xl p-5">
+<p class="text-xs text-white/40 font-mono mb-1">AVG TEMPERATURE</p>
+<div class="flex items-center justify-between">
+<span class="text-4xl font-bold">24.2</span>
+<div class="size-10 bg-white/5 rounded flex items-center justify-center">
+<span class="text-white/40 font-mono text-sm">°C</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex-1 flex flex-col mt-2">
+<h3 class="text-sm font-bold uppercase tracking-widest text-white/40 mb-4">Fleet Status Map</h3>
+<div class="flex-1 bg-card-dark border border-border-dark rounded-xl relative overflow-hidden flex items-center justify-center group">
+<div class="absolute inset-0 bg-center bg-cover opacity-30 grayscale hover:grayscale-0 transition-all duration-700" data-alt="Satellite map of facility" data-location="Farm Sector A" style="background-image: url('https://placeholder.pics/svg/300')"></div>
+<div class="relative z-10 text-center">
+<span class="material-symbols-outlined text-primary text-4xl mb-2">location_on</span>
+<p class="text-xs font-mono font-bold tracking-widest">SECTOR ALPHA</p>
+</div>
+</div><div class="flex items-center gap-2 bg-card-dark border border-border-dark rounded-lg px-3 py-2 cursor-pointer hover:border-primary/40 transition-all group">
+<span class="material-symbols-outlined text-white/40 group-hover:text-primary text-sm">calendar_month</span>
+<div class="flex flex-col">
+<span class="text-[8px] uppercase tracking-widest text-white/40 font-bold leading-none">Date Range</span>
+<span class="text-xs font-mono text-white/80">Oct 01 - Oct 14</span>
+</div>
+<span class="material-symbols-outlined text-white/20 text-xs ml-1">expand_more</span>
+</div>
+</div>
+<div class="pt-4 border-t border-border-dark">
+<button class="w-full bg-white/5 border border-white/10 hover:bg-white/10 py-3 rounded-lg flex items-center justify-center gap-2 text-xs font-bold transition-all uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">download</span>
+                            Export Full Log Archive
+                        </button>
+</div>
+</aside>
+</div>
+</main>
+</div>
+</body></html>

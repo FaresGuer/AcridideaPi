@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Locust Control System V2.4 - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#3ce619",
+                        "amber-alert": "#ffbf00",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#0a0f0a",
+                        "surface-dark": "#141e14",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            grid-auto-rows: minmax(100px, auto);
+            gap: 1rem;
+        }
+        .glass-panel {
+            background: rgba(20, 30, 20, 0.8);
+            border: 1px solid rgba(60, 230, 25, 0.1);
+            backdrop-filter: blur(8px);
+        }
+        .scanline {
+            background: linear-gradient(to bottom, rgba(60, 230, 25, 0) 50%, rgba(60, 230, 25, 0.05) 50%);
+            background-size: 100% 4px;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="flex h-screen flex-col overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between border-b border-primary/20 px-8 py-3 bg-surface-dark/50 backdrop-blur-md z-50">
+<div class="flex items-center gap-4">
+<div class="size-8 text-primary">
+<span class="material-symbols-outlined text-3xl">pest_control</span>
+</div>
+<div class="flex flex-col">
+<h2 class="text-white text-lg font-bold leading-tight tracking-tight uppercase">Locust Control <span class="text-primary">System V2.4</span></h2>
+<p class="text-[10px] text-primary/60 font-mono">UNIT ID: CH-902-DELTA | LOCATION: SECTOR-7G</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<nav class="hidden lg:flex items-center gap-8">
+<a class="text-primary text-xs font-bold tracking-widest border-b-2 border-primary pb-1" href="#">DASHBOARD</a>
+<a class="text-white/60 text-xs font-bold tracking-widest hover:text-primary transition-colors" href="#">ANALYTICS</a>
+<a class="text-white/60 text-xs font-bold tracking-widest hover:text-primary transition-colors" href="#">HARDWARE</a>
+<a class="text-white/60 text-xs font-bold tracking-widest hover:text-primary transition-colors" href="#">ARCHIVE</a>
+</nav>
+<div class="h-8 w-[1px] bg-primary/20 mx-2"></div>
+<div class="flex gap-3">
+<div class="flex items-center gap-2 px-3 py-1.5 rounded bg-primary/10 border border-primary/30">
+<div class="size-2 rounded-full bg-primary animate-pulse"></div>
+<span class="text-[10px] font-bold text-primary uppercase">System Nominal</span>
+</div>
+<button class="flex items-center justify-center rounded bg-surface-dark border border-primary/20 size-9 text-white hover:bg-primary/20 transition-all">
+<span class="material-symbols-outlined text-xl">notifications</span>
+</button>
+<button class="flex items-center justify-center rounded bg-surface-dark border border-primary/20 size-9 text-white hover:bg-primary/20 transition-all">
+<span class="material-symbols-outlined text-xl">settings</span>
+</button>
+<div class="size-9 rounded bg-primary/20 border border-primary/40 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Dashboard Area -->
+<main class="flex-1 overflow-y-auto p-6 lg:px-8">
+<div class="bento-grid max-w-[1600px] mx-auto">
+<!-- Widget 1: Live Camera Feed -->
+<div class="col-span-12 lg:col-span-8 row-span-4 glass-panel rounded-xl overflow-hidden relative group">
+<div class="absolute inset-0 scanline pointer-events-none opacity-30"></div>
+<div class="absolute top-4 left-4 z-10 flex items-center gap-3">
+<div class="bg-black/60 px-3 py-1 rounded-sm border border-primary/40 backdrop-blur-sm">
+<span class="text-[10px] font-bold text-primary uppercase tracking-widest">Live: Cam_01_Ceiling</span>
+</div>
+<div class="bg-red-600 px-2 py-1 rounded-sm flex items-center gap-1.5">
+<div class="size-1.5 rounded-full bg-white animate-pulse"></div>
+<span class="text-[10px] font-bold text-white uppercase">REC</span>
+</div>
+</div>
+<div class="absolute bottom-4 right-4 z-10 flex flex-col items-end gap-1">
+<span class="text-[10px] font-mono text-primary/80">2024-05-24 14:12:44.02</span>
+<span class="text-[10px] font-mono text-primary/80">52.3452° N, 13.4064° E</span>
+</div>
+<div class="w-full h-full min-h-[400px] bg-slate-900 flex items-center justify-center overflow-hidden">
+<img alt="Top-down view of locust container with swarming insects" class="w-full h-full object-cover opacity-60 grayscale brightness-75 contrast-125" data-alt="Monochrome top-down camera view of swarming locusts in a laboratory container" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBthm1lTm9Nqp56KwpVTkt-lf8g1eezR57XjBq420z3ozO7o3lnOveMukn6bmqqFPunMr6jc6bTaqkm0HUxfKe-_SNuiWAEFKFz4aDRprphZ_IMLfFqq6vrgOEgQilZy_HzmnalK6Vje_tSY4IBtKNGWn7-AZxsKxEzAmNbsaSVemU8doTpo3UzEpvep2IW3SRI86e1jl6cZh8u-gnIGZmeHrKoKHysXrxYynskDnR38m8n1wQOUP5jhDa2B5G_bwP-o9uZwANm3TQ"/>
+<!-- AI Tracking Overlays -->
+<div class="absolute inset-0 pointer-events-none">
+<div class="absolute top-1/4 left-1/3 size-32 border border-primary/60 border-dashed rounded-full flex items-center justify-center">
+<span class="text-[8px] text-primary bg-black/40 px-1">CLSTR_04</span>
+</div>
+<div class="absolute bottom-1/3 right-1/4 size-24 border border-amber-alert/60 border-dashed rounded-full flex items-center justify-center">
+<span class="text-[8px] text-amber-alert bg-black/40 px-1">ANOMALY_B</span>
+</div>
+</div>
+</div>
+<div class="absolute top-4 right-4 flex gap-2">
+<button class="size-8 bg-black/40 hover:bg-primary/20 border border-primary/20 rounded flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm">fullscreen</span>
+</button>
+<button class="size-8 bg-black/40 hover:bg-primary/20 border border-primary/20 rounded flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm">videocam_off</span>
+</button>
+</div>
+</div>
+<!-- Widget 2: Environmental Gauges -->
+<div class="col-span-12 lg:col-span-4 row-span-2 glass-panel rounded-xl p-5 flex flex-col gap-4">
+<div class="flex items-center justify-between border-b border-primary/10 pb-3">
+<h3 class="text-xs font-bold tracking-widest text-primary uppercase">Environmental Core</h3>
+<span class="material-symbols-outlined text-primary/40">thermostat</span>
+</div>
+<div class="grid grid-cols-3 gap-4 h-full py-2">
+<!-- Temp Gauge -->
+<div class="flex flex-col items-center justify-center gap-2">
+<div class="relative size-20">
+<svg class="size-full" viewbox="0 0 100 100">
+<circle class="text-primary/10 stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-width="8"></circle>
+<circle class="text-primary stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="150" stroke-linecap="round" stroke-width="8" transform="rotate(-90 50 50)"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-lg font-bold">28.4</span>
+<span class="text-[8px] text-white/40 uppercase">Temp °C</span>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px] text-primary">trending_up</span>
+<span class="text-[10px] text-primary/80">+1.2%</span>
+</div>
+</div>
+<!-- Humidity Gauge -->
+<div class="flex flex-col items-center justify-center gap-2">
+<div class="relative size-20">
+<svg class="size-full" viewbox="0 0 100 100">
+<circle class="text-primary/10 stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-width="8"></circle>
+<circle class="text-primary stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="100" stroke-linecap="round" stroke-width="8" transform="rotate(-90 50 50)"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-lg font-bold">62</span>
+<span class="text-[8px] text-white/40 uppercase">Humid %</span>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px] text-amber-alert">trending_down</span>
+<span class="text-[10px] text-amber-alert/80">-0.5%</span>
+</div>
+</div>
+<!-- CO2 Gauge -->
+<div class="flex flex-col items-center justify-center gap-2">
+<div class="relative size-20">
+<svg class="size-full" viewbox="0 0 100 100">
+<circle class="text-primary/10 stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-width="8"></circle>
+<circle class="text-amber-alert stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="180" stroke-linecap="round" stroke-width="8" transform="rotate(-90 50 50)"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-lg font-bold">410</span>
+<span class="text-[8px] text-white/40 uppercase">CO2 PPM</span>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px] text-primary">trending_flat</span>
+<span class="text-[10px] text-primary/80">0.0%</span>
+</div>
+</div>
+</div>
+<div class="mt-auto bg-primary/5 p-3 border border-primary/20 rounded">
+<div class="flex justify-between items-center mb-1">
+<span class="text-[10px] uppercase font-bold text-white/60">Oxygen Saturation</span>
+<span class="text-[10px] font-mono text-primary">21.4%</span>
+</div>
+<div class="w-full bg-primary/20 h-1 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[85%]"></div>
+</div>
+</div>
+</div>
+<!-- Widget 3: Manual Controls -->
+<div class="col-span-12 lg:col-span-4 row-span-2 glass-panel rounded-xl p-5 flex flex-col">
+<div class="flex items-center justify-between border-b border-primary/10 pb-3 mb-4">
+<h3 class="text-xs font-bold tracking-widest text-primary uppercase">Override Console</h3>
+<span class="material-symbols-outlined text-primary/40">tune</span>
+</div>
+<div class="flex-1 grid grid-cols-1 gap-3">
+<!-- Toggle 1 -->
+<div class="flex items-center justify-between bg-white/5 p-3 rounded border border-white/5 hover:border-primary/30 transition-all cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">toys_fan</span>
+<div class="flex flex-col">
+<span class="text-xs font-bold uppercase">Ventilation Fans</span>
+<span class="text-[9px] text-white/40">POWER: 120W</span>
+</div>
+</div>
+<button class="w-12 h-6 bg-primary rounded-full relative p-1">
+<div class="absolute right-1 top-1 size-4 bg-white rounded-full"></div>
+</button>
+</div>
+<!-- Toggle 2 -->
+<div class="flex items-center justify-between bg-white/5 p-3 rounded border border-white/5 hover:border-primary/30 transition-all cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">heat</span>
+<div class="flex flex-col">
+<span class="text-xs font-bold uppercase">Thermal Heaters</span>
+<span class="text-[9px] text-white/40">STATUS: STANDBY</span>
+</div>
+</div>
+<button class="w-12 h-6 bg-surface-dark/80 rounded-full relative p-1 border border-primary/40">
+<div class="absolute left-1 top-1 size-4 bg-primary/40 rounded-full"></div>
+</button>
+</div>
+<!-- Toggle 3 -->
+<div class="flex items-center justify-between bg-white/5 p-3 rounded border border-white/5 hover:border-primary/30 transition-all cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">water_drop</span>
+<div class="flex flex-col">
+<span class="text-xs font-bold uppercase">Mist Sprayers</span>
+<span class="text-[9px] text-white/40">CYCLE: 15min</span>
+</div>
+</div>
+<button class="w-12 h-6 bg-primary rounded-full relative p-1">
+<div class="absolute right-1 top-1 size-4 bg-white rounded-full"></div>
+</button>
+</div>
+</div>
+</div>
+<!-- Widget 4: AI Insights -->
+<div class="col-span-12 lg:col-span-6 row-span-2 glass-panel rounded-xl p-5 flex flex-col">
+<div class="flex items-center justify-between border-b border-primary/10 pb-3 mb-4">
+<h3 class="text-xs font-bold tracking-widest text-primary uppercase">AI Cognitive Analysis</h3>
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-primary text-sm animate-pulse">neurology</span>
+<span class="text-[9px] font-mono text-primary/60">PROC: 14.2ms</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-6 h-full">
+<div class="flex flex-col justify-center">
+<span class="text-[10px] text-white/40 uppercase font-bold tracking-tight mb-1">Locust Density</span>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-bold">142</span>
+<span class="text-xs text-primary font-bold">u/m³</span>
+</div>
+<div class="h-10 mt-3 flex items-end gap-1">
+<div class="w-full bg-primary h-[30%] opacity-40"></div>
+<div class="w-full bg-primary h-[45%] opacity-50"></div>
+<div class="w-full bg-primary h-[20%] opacity-30"></div>
+<div class="w-full bg-primary h-[60%] opacity-70"></div>
+<div class="w-full bg-primary h-[85%] opacity-100"></div>
+<div class="w-full bg-primary h-[70%] opacity-80"></div>
+<div class="w-full bg-primary h-[40%] opacity-60"></div>
+</div>
+</div>
+<div class="flex flex-col justify-center">
+<span class="text-[10px] text-white/40 uppercase font-bold tracking-tight mb-1">Activity Level</span>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-bold">HIGH</span>
+<span class="text-xs text-amber-alert font-bold">+18%</span>
+</div>
+<div class="h-10 mt-3 flex items-end gap-1">
+<div class="w-full bg-amber-alert h-[60%] opacity-40"></div>
+<div class="w-full bg-amber-alert h-[55%] opacity-50"></div>
+<div class="w-full bg-amber-alert h-[80%] opacity-30"></div>
+<div class="w-full bg-amber-alert h-[90%] opacity-70"></div>
+<div class="w-full bg-amber-alert h-[95%] opacity-100"></div>
+<div class="w-full bg-amber-alert h-[75%] opacity-80"></div>
+<div class="w-full bg-amber-alert h-[60%] opacity-60"></div>
+</div>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-primary/10">
+<p class="text-[11px] text-primary/80 italic font-mono leading-relaxed">
+<span class="font-bold">INSIGHT:</span> Aggregation patterns detected in Sector 4B. Proposing slight temperature reduction of -0.5°C to stabilize metabolism.
+                        </p>
+</div>
+</div>
+<!-- Widget 5: Alert Log -->
+<div class="col-span-12 lg:col-span-6 row-span-2 glass-panel rounded-xl p-5 flex flex-col">
+<div class="flex items-center justify-between border-b border-primary/10 pb-3 mb-4">
+<div class="flex items-center gap-2">
+<h3 class="text-xs font-bold tracking-widest text-primary uppercase">Risk &amp; Security Log</h3>
+<div class="bg-amber-alert/20 px-2 py-0.5 rounded text-[8px] font-bold text-amber-alert border border-amber-alert/40 uppercase tracking-tighter">Bacterial Watch</div>
+</div>
+<span class="material-symbols-outlined text-amber-alert/40">warning</span>
+</div>
+<div class="flex-1 space-y-3 overflow-y-auto max-h-[160px] pr-2 custom-scrollbar">
+<!-- Alert 1 -->
+<div class="flex items-start gap-3 p-3 bg-amber-alert/5 border-l-2 border-amber-alert rounded-r">
+<span class="material-symbols-outlined text-amber-alert text-sm mt-0.5">error_outline</span>
+<div class="flex flex-col">
+<div class="flex justify-between items-center w-full">
+<span class="text-[10px] font-bold text-amber-alert uppercase">Bacterial Growth Risk: HIGH</span>
+<span class="text-[9px] font-mono text-white/40">14:05:22</span>
+</div>
+<p class="text-[11px] text-white/70 mt-1">Humidity sustained at &gt;65% for 120 minutes. Pathogen probability: 0.14%.</p>
+</div>
+</div>
+<!-- Alert 2 -->
+<div class="flex items-start gap-3 p-3 bg-primary/5 border-l-2 border-primary rounded-r">
+<span class="material-symbols-outlined text-primary text-sm mt-0.5">check_circle</span>
+<div class="flex flex-col">
+<div class="flex justify-between items-center w-full">
+<span class="text-[10px] font-bold text-primary uppercase">Filter Cycle Completed</span>
+<span class="text-[9px] font-mono text-white/40">13:58:10</span>
+</div>
+<p class="text-[11px] text-white/70 mt-1">HEPA air purification module successfully cycled. VOC levels stabilized.</p>
+</div>
+</div>
+<!-- Alert 3 -->
+<div class="flex items-start gap-3 p-3 bg-white/5 border-l-2 border-white/20 rounded-r opacity-60">
+<span class="material-symbols-outlined text-white/40 text-sm mt-0.5">info</span>
+<div class="flex flex-col">
+<div class="flex justify-between items-center w-full">
+<span class="text-[10px] font-bold text-white/60 uppercase">Feed Dispensed</span>
+<span class="text-[9px] font-mono text-white/40">13:45:00</span>
+</div>
+<p class="text-[11px] text-white/50 mt-1">Batch #77-B protein substrate released into primary feeder.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Stats Bar -->
+<footer class="bg-surface-dark border-t border-primary/20 px-8 py-2 flex items-center justify-between text-[10px] font-bold tracking-widest text-white/40 uppercase">
+<div class="flex gap-8">
+<div class="flex items-center gap-2">
+<span class="text-primary">System Uptime:</span>
+<span class="text-white/80">142h 12m 04s</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-primary">Power Draw:</span>
+<span class="text-white/80">4.2kW (Peak)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-primary">Latency:</span>
+<span class="text-white/80">12ms</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<div class="size-1.5 rounded-full bg-primary"></div>
+<span>Data Link: Encrypted</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="size-1.5 rounded-full bg-primary"></div>
+<span>Node: Delta-09</span>
+</div>
+</div>
+</footer>
+</div>
+<style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(60, 230, 25, 0.2);
+            border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(60, 230, 25, 0.4);
+        }
+    </style>
+</body></html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>IoT Core - Industrial Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#3ce619",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#0a0a0a",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        .glass-card {
+            background: rgba(10, 10, 10, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(60, 230, 25, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+        }
+        .input-glow:focus-within {
+            box-shadow: 0 0 15px rgba(60, 230, 25, 0.2);
+            border-color: #3ce619;
+        }
+        .btn-glow:hover {
+            box-shadow: 0 0 20px rgba(60, 230, 25, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-background-dark text-white min-h-screen flex items-center justify-center overflow-hidden font-display">
+<!-- Blurred Background Image -->
+<div class="fixed inset-0 z-0">
+<div class="absolute inset-0 bg-black/60 z-10"></div>
+<div class="w-full h-full bg-cover bg-center scale-110 blur-md" data-alt="Blurred high-tech automated vertical farm greenhouse" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAiBMDR0YMbGotws3nzfjFnPkJOiqJ1tELA9blXwJcr_hduHxfR5Z488s5cfZGMWlZTep5r-dju9tLzmkrZ3glWwqkaPz-TuXt76nA-75qCmqCWhsC9sVs6KzlrFrNk2ch82AfT9cD1vkhpIPQavPM0NLP5MVxMlveTWkl_VCNP9-qSIORSghK9J_0oIDO9ZDYupKJYtjvj0PScJR23RAChoiZZBRD6qcsIgVLL4ZnsMRlkIrT1AG1ej_FNo186BW4xBfZboR4S5vU');">
+</div>
+</div>
+<!-- Main Login Container -->
+<main class="relative z-20 w-full max-w-[440px] px-6">
+<!-- Status Indicator Top -->
+<div class="flex items-center justify-center gap-2 mb-8 animate-pulse">
+<span class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_#3ce619]"></span>
+<span class="text-[10px] uppercase tracking-[0.2em] text-primary/80 font-bold">System Online // Secure Link Established</span>
+</div>
+<div class="glass-card p-8 md:p-10 rounded-xl flex flex-col gap-8">
+<!-- Header -->
+<div class="text-center">
+<div class="flex justify-center mb-4">
+<div class="p-3 rounded-lg border border-primary/30 bg-primary/5">
+<span class="material-symbols-outlined text-primary text-4xl">precision_manufacturing</span>
+</div>
+</div>
+<h1 class="text-2xl font-bold tracking-tight text-white mb-2 uppercase">IoT Core Login</h1>
+<p class="text-white/50 text-sm font-light">Industrial Facility Access Protocol</p>
+</div>
+<!-- Form -->
+<form class="flex flex-col gap-5">
+<!-- Email Field -->
+<div class="flex flex-col gap-2">
+<label class="text-[11px] uppercase tracking-widest text-primary/70 font-semibold ml-1">Operator Identifier</label>
+<div class="input-glow flex items-center bg-black/40 border border-white/10 rounded-lg transition-all duration-300">
+<div class="pl-4 pr-2 text-white/40">
+<span class="material-symbols-outlined text-[20px]">alternate_email</span>
+</div>
+<input class="bg-transparent border-none focus:ring-0 text-white placeholder:text-white/20 w-full py-4 text-sm font-medium" placeholder="operator@facility.io" type="email"/>
+</div>
+</div>
+<!-- Container ID Field -->
+<div class="flex flex-col gap-2">
+<label class="text-[11px] uppercase tracking-widest text-primary/70 font-semibold ml-1">Container Terminal ID</label>
+<div class="input-glow flex items-center bg-black/40 border border-white/10 rounded-lg transition-all duration-300">
+<div class="pl-4 pr-2 text-white/40">
+<span class="material-symbols-outlined text-[20px]">barcode_scanner</span>
+</div>
+<input class="bg-transparent border-none focus:ring-0 text-white placeholder:text-white/20 w-full py-4 text-sm font-medium" placeholder="UNIT-XXXX-XX" type="text"/>
+</div>
+</div>
+<!-- Action Button -->
+<button class="btn-glow mt-2 w-full bg-primary text-background-dark py-4 rounded-lg font-bold uppercase tracking-wider text-sm transition-all duration-300 flex items-center justify-center gap-2 group" type="submit">
+<span>Initialize Access</span>
+<span class="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">terminal</span>
+</button>
+</form>
+<!-- Security Footer -->
+<div class="flex flex-col items-center gap-6">
+<div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
+<span class="material-symbols-outlined text-[14px] text-primary/80">encrypted</span>
+<span class="text-[10px] text-white/40 uppercase tracking-tighter">AES-256 Encrypted Connection</span>
+</div>
+<!-- Links -->
+<div class="flex flex-col gap-3 items-center">
+<a class="text-primary/70 hover:text-primary text-xs font-medium transition-colors duration-200 flex items-center gap-1 uppercase tracking-wide" href="#">
+<span class="material-symbols-outlined text-[14px]">add_box</span>
+                        Register New Container
+                    </a>
+<a class="text-white/30 hover:text-white/60 text-[10px] uppercase tracking-widest transition-colors duration-200" href="#">
+                        Forgot Credentials?
+                    </a>
+</div>
+</div>
+</div>
+<!-- System Meta -->
+<div class="mt-8 flex justify-between text-[10px] text-white/20 uppercase tracking-[0.2em] font-medium px-2">
+<div>Node: US-EAST-04</div>
+<div>v4.2.0-stable</div>
+</div>
+</main>
+</body></html>
