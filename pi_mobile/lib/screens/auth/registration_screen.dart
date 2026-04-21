@@ -20,6 +20,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
 
   bool _agreedToTerms = false;
   bool _isSubmitting = false;
+  bool _showPassword = false;
 
   @override
   void initState() {
@@ -158,11 +159,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
                               decoration: InputDecoration(
                                 hintText: 'Enter password',
                                 prefixIcon: Icon(Icons.lock_outline, color: AppColors.primary),
-                                suffixIcon: Icon(Icons.visibility_off_outlined, color: AppColors.textHint),
+                                suffixIcon: IconButton(
+                                  onPressed: () {
+                                    setState(() => _showPassword = !_showPassword);
+                                  },
+                                  icon: Icon(
+                                    _showPassword
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                    color: AppColors.textHint,
+                                  ),
+                                  tooltip: _showPassword ? 'Hide password' : 'Show password',
+                                ),
                                 filled: true,
                                 fillColor: Colors.white,
                               ),
-                              obscureText: true,
+                              obscureText: !_showPassword,
                             ),
                           ),
                           SizedBox(height: 24),

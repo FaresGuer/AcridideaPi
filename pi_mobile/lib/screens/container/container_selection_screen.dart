@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/container_service.dart';
+import '../../models/auth_user.dart';
 import '../../models/container.dart' as models;
 import 'no_container_page.dart';
 import 'add_container_dialog.dart';
+import '../notifications/notifications_screen.dart';
 import '../account/account_management_screen.dart';
 
 class ContainerSelectionScreen extends StatefulWidget {
@@ -16,16 +20,40 @@ class ContainerSelectionScreen extends StatefulWidget {
 
 class _ContainerSelectionScreenState extends State<ContainerSelectionScreen> {
   late Future<List<models.Container>> _containersFuture;
+  Timer? _autoRefreshTimer;
+
+  bool _isAdmin(AuthUser? user) {
+    if (user == null) {
+      return false;
+    }
+    return user.role.toUpperCase() == 'ADMIN';
+  }
 
   @override
   void initState() {
     super.initState();
     _loadContainers();
+    _startAutoRefresh();
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
   }
 
   void _loadContainers() {
     setState(() {
       _containersFuture = AuthService.fetchContainers();
+    });
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!mounted) {
+        return;
+      }
+      _loadContainers();
     });
   }
 
@@ -64,7 +92,7 @@ class _ContainerSelectionScreenState extends State<ContainerSelectionScreen> {
                       ),
                     ],
                   ),
-                  _buildProfileButton(context),
+                  _buildHeaderActions(context),
                 ],
               ),
             ),
@@ -108,21 +136,65 @@ class _ContainerSelectionScreenState extends State<ContainerSelectionScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await showDialog<bool>(
-            context: context,
-            builder: (context) => const AddContainerMapDialog(),
-          );
-          if (result == true) {
-            _loadContainers();
+      floatingActionButton: ValueListenableBuilder<AuthUser?>(
+        valueListenable: AuthService.currentUser,
+        builder: (context, user, _) {
+          if (!_isAdmin(user)) {
+            return const SizedBox.shrink();
           }
+
+          return FloatingActionButton(
+            onPressed: () async {
+              final result = await showDialog<bool>(
+                context: context,
+                builder: (context) => const AddContainerMapDialog(),
+              );
+              if (result == true) {
+                _loadContainers();
+              }
+            },
+            backgroundColor: Color(0xFF00C853),
+            shape: CircleBorder(),
+            elevation: 4,
+            child: Icon(Icons.add, color: Colors.white, size: 28),
+          );
         },
-        backgroundColor: Color(0xFF00C853),
-        shape: CircleBorder(),
-        elevation: 4,
-        child: Icon(Icons.add, color: Colors.white, size: 28),
       ),
+    );
+  }
+
+  Widget _buildHeaderActions(BuildContext context) {
+    return ValueListenableBuilder<AuthUser?>(
+      valueListenable: AuthService.currentUser,
+      builder: (context, user, _) {
+        final isAdmin = _isAdmin(user);
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!isAdmin) ...[
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => NotificationsScreen()),
+                  );
+                },
+                child: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFE3E8EF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.notifications_outlined, color: AppColors.primary),
+                ),
+              ),
+              SizedBox(width: 12),
+            ],
+            _buildProfileButton(context),
+          ],
+        );
+      },
     );
   }
 

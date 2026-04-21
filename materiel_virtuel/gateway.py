@@ -1,28 +1,19 @@
 import paho.mqtt.client as mqtt
-import mysql.connector
+import psycopg
 from datetime import datetime
+import time
 
 # ─── Config ───────────────────────────────────────────────
 MQTT_BROKER          = "broker.hivemq.com"
 MQTT_PORT            = 1883
 DEFAULT_CONTAINER_ID = 8
 
-# ⚠️ For testing on PC with local MySQL
-# When deploying to Raspberry Pi, change host to "localhost"
-# and user/password to "locust"/"locust123"
-# DB_CONFIG = {
-#     "host":     "localhost",
-#     "user":     "locust",
-#     "password": "locust123",
-#     "database": "locust_farm"
-# } 
-# rasberry pi config
-DB_CONFIG = {
-    "host":     "localhost",
-    "user":     "root",
-    "password": "",
-    "database": "locust_farm"
-}
+# ⚠️ Neon PostgreSQL connection string (cloud)
+DATABASE_URL = "postgresql://neondb_owner:npg_ib5XlIOF2uxf@ep-restless-violet-anmpow2v.c-6.us-east-1.aws.neon.tech/locust_farm?sslmode=require"
+THRESHOLD_CACHE_SECONDS = 30
+DB_WRITE_MIN_INTERVAL_SECONDS = 1.0
+
+
 # Topics — sensors ESP publishes
 TOPIC_TEMP      = "sensors/temperature"
 TOPIC_HUM       = "sensors/humidity"
@@ -52,82 +43,109 @@ latest = {
     "gas":         None,
     "light_level": None
 }
+_db_conn = None
+_threshold_cache = {}
+_last_db_write_ts = 0.0
 
 # ─── Database ─────────────────────────────────────────────
 def get_db():
-    return mysql.connector.connect(**DB_CONFIG)
+    """Reuse one PostgreSQL connection to avoid TLS handshake on every message."""
+    global _db_conn
+    if _db_conn is None or _db_conn.closed:
+        _db_conn = psycopg.connect(DATABASE_URL)
+    return _db_conn
+
+
+def _get_default_thresholds():
+    return {
+        "target_temperature": 25.0,
+        "target_temperature_min": 20.0,
+        "target_humidity": 60.0,
+        "target_humidity_min": 40.0,
+        "target_light_level": 75.0,
+        "target_light_level_min": 30.0,
+        "target_gas_level": 2000.0,
+        "target_gas_level_min": 0.0,
+    }
 
 def fetch_thresholds(container_id):
+    cached = _threshold_cache.get(container_id)
+    now_ts = time.time()
+    if cached and now_ts - cached["ts"] < THRESHOLD_CACHE_SECONDS:
+        return cached["data"]
+
     try:
-        db  = get_db()
-        cur = db.cursor(dictionary=True)
-        cur.execute("""
-            SELECT target_temperature, target_temperature_min,
-                   target_humidity,    target_humidity_min,
-                   target_light_level, target_light_level_min,
-                   target_gas_level,   target_gas_level_min
-            FROM container_data
-            WHERE container_id = %s
-        """, (container_id,))
-        row = cur.fetchone()
-        return row if row else {
-            "target_temperature":     25.0,
-            "target_temperature_min": 20.0,
-            "target_humidity":        70.0,
-            "target_humidity_min":    30.0,
-            "target_light_level":     75.0,
-            "target_light_level_min": 20.0,
-            "target_gas_level":       1500.0,
-            "target_gas_level_min":   0.0
-        }
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute("""
+                SELECT target_temperature, target_temperature_min,
+                       target_humidity,    target_humidity_min,
+                       target_light_level, target_light_level_min,
+                       target_gas_level,   target_gas_level_min
+                FROM container_data
+                WHERE container_id = %s
+            """, (container_id,))
+            row = cur.fetchone()
+        
+        if row:
+            values = {
+                "target_temperature":     row[0],
+                "target_temperature_min": row[1],
+                "target_humidity":        row[2],
+                "target_humidity_min":    row[3],
+                "target_light_level":     row[4],
+                "target_light_level_min": row[5],
+                "target_gas_level":       row[6],
+                "target_gas_level_min":   row[7]
+            }
+        else:
+            values = _get_default_thresholds()
+
+        _threshold_cache[container_id] = {"ts": now_ts, "data": values}
+        return values
     except Exception as e:
         print(f"[DB] Failed to fetch thresholds: {e}")
-        return {
-            "target_temperature":     25.0,
-            "target_temperature_min": 20.0,
-            "target_humidity":        70.0,
-            "target_humidity_min":    30.0,
-            "target_light_level":     75.0,
-            "target_light_level_min": 20.0,
-            "target_gas_level":       1500.0,
-            "target_gas_level_min":   0.0
-        }
-    finally:
-        cur.close()
-        db.close()
+        return _get_default_thresholds()
 
 def update_db(temp, hum, lux_percent, gas, heater, fan, light, humidifier, container_id):
-    try:
-        db  = get_db()
-        cur = db.cursor()
+    global _last_db_write_ts
+    now_ts = time.time()
+    if now_ts - _last_db_write_ts < DB_WRITE_MIN_INTERVAL_SECONDS:
+        return
 
-        # Update current state
-        cur.execute("""
-            UPDATE container_data
-            SET temperature       = %s,
-                humidity          = %s,
-                light_level       = %s,
-                gas_level         = %s,
-                heater_status     = %s,
-                fan_status        = %s,
-                light_status      = %s,
-                humidifier_status = %s,
-                last_updated      = %s
-            WHERE container_id = %s
-        """, (
-            temp, hum, lux_percent, gas,
-            heater, fan, light, humidifier,
-            datetime.now(),
-            container_id
-        ))
+    try:
+        db = get_db()
+        with db.cursor() as cur:
+            heater_status = bool(heater)
+            fan_status = bool(fan)
+            light_status = bool(light)
+            humidifier_status = bool(humidifier)
+
+            # Update current state
+            cur.execute("""
+                UPDATE container_data
+                SET temperature       = %s,
+                    humidity          = %s,
+                    light_level       = %s,
+                    gas_level         = %s,
+                    heater_status     = %s,
+                    fan_status        = %s,
+                    light_status      = %s,
+                    humidifier_status = %s,
+                    last_updated      = %s
+                WHERE container_id = %s
+            """, (
+                temp, hum, lux_percent, gas,
+                heater_status, fan_status, light_status, humidifier_status,
+                datetime.now(),
+                container_id
+            ))
 
         db.commit()
+        _last_db_write_ts = now_ts
         print(f"[DB] Updated container_data for container {container_id}")
     except Exception as e:
         print(f"[DB] Error: {e}")
-    finally:
-        cur.close()
-        db.close()
 
 # ─── Decision Logic ───────────────────────────────────────
 def adc_to_percent(adc_value):
