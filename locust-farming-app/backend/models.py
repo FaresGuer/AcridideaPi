@@ -55,6 +55,7 @@ class ContainerData(Base):
     temperature = Column(Float, nullable=True)
     humidity = Column(Float, nullable=True)
     light_level = Column(Float, nullable=True)
+    gas_level = Column(Float, nullable=True)
 
     heater_status = Column(Boolean, default=False, nullable=False)
     fan_status = Column(Boolean, default=False, nullable=False)
@@ -64,6 +65,8 @@ class ContainerData(Base):
     target_temperature = Column(Float, nullable=True)
     target_humidity = Column(Float, nullable=True)
     target_light_level = Column(Float, nullable=True)
+    target_gas_level = Column(Float, nullable=True)
+    target_gas_level_min = Column(Float, nullable=True)
 
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

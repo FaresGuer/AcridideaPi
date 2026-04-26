@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import MainLayout from '../components/MainLayout';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -89,6 +89,7 @@ const Dashboard = () => {
 
     const [sensorFilter, setSensorFilter] = useState('All');
     const [dateFilter, setDateFilter] = useState('');
+    const lastRecordedSnapshotRef = useRef('');
 
     // Enable container monitoring for alerts
     useContainerMonitoring(true);
@@ -134,15 +135,55 @@ const Dashboard = () => {
         if (!token || !containerId) return;
         try {
             const data = await apiRequest(`/containers/${containerId}/data`, { headers: authHeaders(token) });
-            setCurrentData({
+            const snapshot = {
                 last_updated: data.last_updated ?? null,
                 temperature: data.temperature ?? null,
                 humidity: data.humidity ?? null,
                 light_level: data.light_level ?? null,
                 gas_level: data.gas_level ?? null,
-            });
+            };
+            setCurrentData(snapshot);
+            return snapshot;
         } catch (err) {
             console.error('Failed to load current container data:', err);
+            return null;
+        }
+    };
+
+    const recordSnapshotToHistory = async (containerId, snapshot) => {
+        if (!token || !containerId || !snapshot) return;
+
+        const snapshotKey = snapshot.last_updated || JSON.stringify(snapshot);
+        if (lastRecordedSnapshotRef.current === snapshotKey) {
+            return;
+        }
+
+        const hasReading = ['temperature', 'humidity', 'light_level', 'gas_level']
+            .some((key) => Number.isFinite(snapshot[key]));
+
+        if (!hasReading) {
+            return;
+        }
+
+        lastRecordedSnapshotRef.current = snapshotKey;
+
+        try {
+            await apiRequest(`/containers/${containerId}/data`, {
+                method: 'PUT',
+                headers: {
+                    ...authHeaders(token),
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    temperature: snapshot.temperature,
+                    humidity: snapshot.humidity,
+                    light_level: snapshot.light_level,
+                    gas_level: snapshot.gas_level,
+                }),
+            });
+        } catch (err) {
+            console.error('Failed to record snapshot history:', err);
+            lastRecordedSnapshotRef.current = '';
         }
     };
 
@@ -165,6 +206,7 @@ const Dashboard = () => {
     useEffect(() => {
         if (!selectedContainerId || !token) return;
         setHistory([]);
+        lastRecordedSnapshotRef.current = '';
         Promise.all([
             loadCurrentData(selectedContainerId),
             loadHistory(selectedContainerId),
@@ -178,10 +220,9 @@ const Dashboard = () => {
         let active = true;
         const fetchLoop = async () => {
             try {
-                await Promise.all([
-                    loadCurrentData(selectedContainerId),
-                    loadHistory(selectedContainerId),
-                ]);
+                const currentSnapshot = await loadCurrentData(selectedContainerId);
+                await loadHistory(selectedContainerId);
+                await recordSnapshotToHistory(selectedContainerId, currentSnapshot);
             } catch (err) {
                 if (active) {
                     setError(err.message || 'Failed to load sensor data');
@@ -271,7 +312,7 @@ const Dashboard = () => {
                         value={selectedContainerId}
                         onChange={(e) => {
                             setHistory([]);
-                            setSelectedContainerId(e.target.value);
+                            setCurrentData(null); setHistory([]); setSelectedContainerId(e.target.value);
                         }}
                     >
                         {containers.length === 0 && <option value="">No container available</option>}

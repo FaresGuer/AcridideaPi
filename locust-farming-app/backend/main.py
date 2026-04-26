@@ -71,6 +71,21 @@ def _ensure_container_data_schema_columns() -> None:
                 text("ALTER TABLE container_data ADD COLUMN humidifier_status BOOLEAN NOT NULL DEFAULT FALSE")
             )
 
+        if "gas_level" not in container_data_columns:
+            connection.execute(
+                text("ALTER TABLE container_data ADD COLUMN gas_level FLOAT NULL")
+            )
+
+        if "target_gas_level" not in container_data_columns:
+            connection.execute(
+                text("ALTER TABLE container_data ADD COLUMN target_gas_level FLOAT NULL")
+            )
+
+        if "target_gas_level_min" not in container_data_columns:
+            connection.execute(
+                text("ALTER TABLE container_data ADD COLUMN target_gas_level_min FLOAT NULL")
+            )
+
 
 Base.metadata.create_all(bind=engine)
 _ensure_user_schema_columns()

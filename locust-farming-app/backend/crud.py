@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
-from models import User, Container, ContainerData
+from datetime import datetime
+from models import User, Container, ContainerData, ContainerSensorHistory
 from schemas import UserCreate, UserUpdate, ContainerCreate, ContainerUpdate, ContainerDataUpdate
 from auth import hash_password
 
@@ -66,6 +67,7 @@ def create_container(db: Session, container: ContainerCreate, created_by: int):
         temperature=None,
         humidity=None,
         light_level=None,
+        gas_level=None,
         heater_status=False,
         fan_status=False,
         light_status=False,
@@ -73,6 +75,8 @@ def create_container(db: Session, container: ContainerCreate, created_by: int):
         target_temperature=25.0,
         target_humidity=60.0,
         target_light_level=75.0,
+        target_gas_level=1500.0,
+        target_gas_level_min=1000.0,
     )
     db.add(db_container_data)
     db.commit()
@@ -109,6 +113,23 @@ def get_container_data(db: Session, container_id: int):
     return db.query(ContainerData).filter(ContainerData.container_id == container_id).first()
 
 
+def append_container_sensor_history(
+    db: Session,
+    container_id: int,
+    sensor_type: str,
+    value: float,
+    recorded_at: datetime | None = None,
+):
+    history_row = ContainerSensorHistory(
+        container_id=container_id,
+        sensor_type=sensor_type,
+        value=value,
+        recorded_at=recorded_at or datetime.utcnow(),
+    )
+    db.add(history_row)
+    return history_row
+
+
 def update_container_data(db: Session, container_id: int, data_update: ContainerDataUpdate):
     db_data = get_container_data(db, container_id)
     if not db_data:
@@ -117,10 +138,16 @@ def update_container_data(db: Session, container_id: int, data_update: Container
 
     if data_update.temperature is not None:
         db_data.temperature = data_update.temperature
+        append_container_sensor_history(db, container_id, "temperature", data_update.temperature)
     if data_update.humidity is not None:
         db_data.humidity = data_update.humidity
+        append_container_sensor_history(db, container_id, "humidity", data_update.humidity)
     if data_update.light_level is not None:
         db_data.light_level = data_update.light_level
+        append_container_sensor_history(db, container_id, "light_level", data_update.light_level)
+    if data_update.gas_level is not None:
+        db_data.gas_level = data_update.gas_level
+        append_container_sensor_history(db, container_id, "gas_level", data_update.gas_level)
     if data_update.heater_status is not None:
         db_data.heater_status = data_update.heater_status
     if data_update.fan_status is not None:
@@ -135,6 +162,10 @@ def update_container_data(db: Session, container_id: int, data_update: Container
         db_data.target_humidity = data_update.target_humidity
     if data_update.target_light_level is not None:
         db_data.target_light_level = data_update.target_light_level
+    if data_update.target_gas_level is not None:
+        db_data.target_gas_level = data_update.target_gas_level
+    if data_update.target_gas_level_min is not None:
+        db_data.target_gas_level_min = data_update.target_gas_level_min
 
     db.commit()
     db.refresh(db_data)

@@ -55,6 +55,7 @@ class ContainerDataUpdate(BaseModel):
     temperature: Optional[float] = None
     humidity: Optional[float] = None
     light_level: Optional[float] = None
+    gas_level: Optional[float] = None
     heater_status: Optional[bool] = None
     fan_status: Optional[bool] = None
     light_status: Optional[bool] = None
@@ -62,6 +63,8 @@ class ContainerDataUpdate(BaseModel):
     target_temperature: Optional[float] = None
     target_humidity: Optional[float] = None
     target_light_level: Optional[float] = None
+    target_gas_level: Optional[float] = None
+    target_gas_level_min: Optional[float] = None
 
 class ContainerDataResponse(BaseModel):
     id: int
@@ -69,6 +72,7 @@ class ContainerDataResponse(BaseModel):
     temperature: Optional[float] = None
     humidity: Optional[float] = None
     light_level: Optional[float] = None
+    gas_level: Optional[float] = None
     heater_status: bool
     fan_status: bool
     light_status: bool
@@ -76,6 +80,8 @@ class ContainerDataResponse(BaseModel):
     target_temperature: Optional[float] = None
     target_humidity: Optional[float] = None
     target_light_level: Optional[float] = None
+    target_gas_level: Optional[float] = None
+    target_gas_level_min: Optional[float] = None
     last_updated: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
