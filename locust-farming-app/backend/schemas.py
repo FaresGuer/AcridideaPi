@@ -61,8 +61,11 @@ class ContainerDataUpdate(BaseModel):
     light_status: Optional[bool] = None
     humidifier_status: Optional[bool] = None
     target_temperature: Optional[float] = None
+    target_temperature_min: Optional[float] = None
     target_humidity: Optional[float] = None
+    target_humidity_min: Optional[float] = None
     target_light_level: Optional[float] = None
+    target_light_level_min: Optional[float] = None
     target_gas_level: Optional[float] = None
     target_gas_level_min: Optional[float] = None
 
@@ -78,8 +81,11 @@ class ContainerDataResponse(BaseModel):
     light_status: bool
     humidifier_status: bool
     target_temperature: Optional[float] = None
+    target_temperature_min: Optional[float] = None
     target_humidity: Optional[float] = None
+    target_humidity_min: Optional[float] = None
     target_light_level: Optional[float] = None
+    target_light_level_min: Optional[float] = None
     target_gas_level: Optional[float] = None
     target_gas_level_min: Optional[float] = None
     last_updated: Optional[datetime] = None

@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
-import { monitorAllContainers, generateAlertFromSensorData } from '../services/alertService';
+import { generateAlertFromSensorData } from '../services/alertService';
 import { apiRequest, authHeaders } from '../services/api';
 
 /**

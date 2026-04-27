@@ -21,106 +21,109 @@ export const ALERT_THRESHOLDS = {
         critical: { min: 100, max: 1000 },
         warning: { min: 300, max: 900 },
     },
+    gas_level: {
+        critical: { min: 300, max: 3000 },
+        warning: { min: 700, max: 2000 },
+    },
 };
+
+const SENSOR_CONFIG = {
+    temperature: {
+        minField: 'target_temperature_min',
+        maxField: 'target_temperature',
+        title: 'Temperature',
+        unit: '°C',
+        icon: 'thermostat',
+    },
+    humidity: {
+        minField: 'target_humidity_min',
+        maxField: 'target_humidity',
+        title: 'Humidity',
+        unit: '%',
+        icon: 'humidity_percentage',
+    },
+    light_level: {
+        minField: 'target_light_level_min',
+        maxField: 'target_light_level',
+        title: 'Luminosity',
+        unit: 'Lux',
+        icon: 'light_mode',
+    },
+    gas_level: {
+        minField: 'target_gas_level_min',
+        maxField: 'target_gas_level',
+        title: 'Gas Level',
+        unit: 'ppm',
+        icon: 'air',
+    },
+};
+
+function isOutsideRange(value, min, max) {
+    if (value === null || value === undefined) return false;
+    if (min !== null && min !== undefined && value < min) return true;
+    if (max !== null && max !== undefined && value > max) return true;
+    return false;
+}
+
+function formatRange(min, max, unit) {
+    if (min !== null && min !== undefined && max !== null && max !== undefined) {
+        return `${min}-${max}${unit}`;
+    }
+    if (min !== null && min !== undefined) {
+        return `>= ${min}${unit}`;
+    }
+    if (max !== null && max !== undefined) {
+        return `<= ${max}${unit}`;
+    }
+    return `not configured`;
+}
 
 export function generateAlertFromSensorData(containerData, containerName, containerId) {
     const alerts = [];
 
-    // Temperature checks
-    if (containerData.temperature !== null && containerData.temperature !== undefined) {
-        const temp = containerData.temperature;
-        if (temp < ALERT_THRESHOLDS.temperature.critical.min || temp > ALERT_THRESHOLDS.temperature.critical.max) {
-            alerts.push({
-                id: `${containerId}-temp-critical-${Date.now()}`,
-                severity: 'Critical',
-                title: 'Temperature Critical',
-                description: `Temperature is ${temp}°C. Critical range: ${ALERT_THRESHOLDS.temperature.critical.min}-${ALERT_THRESHOLDS.temperature.critical.max}°C`,
-                source: containerName,
-                timestamp: new Date().toLocaleTimeString(),
-                icon: 'thermostat',
-                color: 'red',
-                sensor: 'temperature',
-                value: temp,
-            });
-        } else if (temp < ALERT_THRESHOLDS.temperature.warning.min || temp > ALERT_THRESHOLDS.temperature.warning.max) {
-            alerts.push({
-                id: `${containerId}-temp-warning-${Date.now()}`,
-                severity: 'Warning',
-                title: 'Temperature Deviation',
-                description: `Temperature is ${temp}°C. Optimal range: ${ALERT_THRESHOLDS.temperature.warning.min}-${ALERT_THRESHOLDS.temperature.warning.max}°C`,
-                source: containerName,
-                timestamp: new Date().toLocaleTimeString(),
-                icon: 'thermostat',
-                color: 'amber',
-                sensor: 'temperature',
-                value: temp,
-            });
+    Object.entries(SENSOR_CONFIG).forEach(([sensor, cfg]) => {
+        const value = containerData[sensor];
+        if (value === null || value === undefined) {
+            return;
         }
-    }
 
-    // Humidity checks
-    if (containerData.humidity !== null && containerData.humidity !== undefined) {
-        const hum = containerData.humidity;
-        if (hum < ALERT_THRESHOLDS.humidity.critical.min || hum > ALERT_THRESHOLDS.humidity.critical.max) {
-            alerts.push({
-                id: `${containerId}-hum-critical-${Date.now()}`,
-                severity: 'Critical',
-                title: 'Humidity Critical',
-                description: `Humidity is ${hum}%. Critical range: ${ALERT_THRESHOLDS.humidity.critical.min}-${ALERT_THRESHOLDS.humidity.critical.max}%`,
-                source: containerName,
-                timestamp: new Date().toLocaleTimeString(),
-                icon: 'humidity_percentage',
-                color: 'red',
-                sensor: 'humidity',
-                value: hum,
-            });
-        } else if (hum < ALERT_THRESHOLDS.humidity.warning.min || hum > ALERT_THRESHOLDS.humidity.warning.max) {
-            alerts.push({
-                id: `${containerId}-hum-warning-${Date.now()}`,
-                severity: 'Warning',
-                title: 'Humidity Deviation',
-                description: `Humidity is ${hum}%. Optimal range: ${ALERT_THRESHOLDS.humidity.warning.min}-${ALERT_THRESHOLDS.humidity.warning.max}%`,
-                source: containerName,
-                timestamp: new Date().toLocaleTimeString(),
-                icon: 'humidity_percentage',
-                color: 'amber',
-                sensor: 'humidity',
-                value: hum,
-            });
-        }
-    }
+        // Prefer thresholds persisted in container_data. Fall back to legacy constants if missing.
+        const warningMin = containerData[cfg.minField] ?? ALERT_THRESHOLDS[sensor]?.warning?.min ?? null;
+        const warningMax = containerData[cfg.maxField] ?? ALERT_THRESHOLDS[sensor]?.warning?.max ?? null;
+        const criticalMin = ALERT_THRESHOLDS[sensor]?.critical?.min ?? warningMin;
+        const criticalMax = ALERT_THRESHOLDS[sensor]?.critical?.max ?? warningMax;
 
-    // Light level checks
-    if (containerData.light_level !== null && containerData.light_level !== undefined) {
-        const light = containerData.light_level;
-        if (light < ALERT_THRESHOLDS.light_level.critical.min || light > ALERT_THRESHOLDS.light_level.critical.max) {
+        if (isOutsideRange(value, criticalMin, criticalMax)) {
             alerts.push({
-                id: `${containerId}-light-critical-${Date.now()}`,
+                id: `${containerId}-${sensor}-critical-${Date.now()}`,
                 severity: 'Critical',
-                title: 'Luminosity Critical',
-                description: `Luminosity is ${light} Lux. Critical range: ${ALERT_THRESHOLDS.light_level.critical.min}-${ALERT_THRESHOLDS.light_level.critical.max} Lux`,
+                title: `${cfg.title} Critical`,
+                description: `${cfg.title} is ${value}${cfg.unit}. Critical range: ${formatRange(criticalMin, criticalMax, cfg.unit)}`,
                 source: containerName,
                 timestamp: new Date().toLocaleTimeString(),
-                icon: 'light_mode',
+                icon: cfg.icon,
                 color: 'red',
-                sensor: 'light_level',
-                value: light,
+                sensor,
+                value,
             });
-        } else if (light < ALERT_THRESHOLDS.light_level.warning.min || light > ALERT_THRESHOLDS.light_level.warning.max) {
+            return;
+        }
+
+        if (isOutsideRange(value, warningMin, warningMax)) {
             alerts.push({
-                id: `${containerId}-light-warning-${Date.now()}`,
+                id: `${containerId}-${sensor}-warning-${Date.now()}`,
                 severity: 'Warning',
-                title: 'Luminosity Deviation',
-                description: `Luminosity is ${light} Lux. Optimal range: ${ALERT_THRESHOLDS.light_level.warning.min}-${ALERT_THRESHOLDS.light_level.warning.max} Lux`,
+                title: `${cfg.title} Deviation`,
+                description: `${cfg.title} is ${value}${cfg.unit}. Container range: ${formatRange(warningMin, warningMax, cfg.unit)}`,
                 source: containerName,
                 timestamp: new Date().toLocaleTimeString(),
-                icon: 'light_mode',
+                icon: cfg.icon,
                 color: 'amber',
-                sensor: 'light_level',
-                value: light,
+                sensor,
+                value,
             });
         }
-    }
+    });
 
     return alerts;
 }

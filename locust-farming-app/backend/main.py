@@ -86,6 +86,21 @@ def _ensure_container_data_schema_columns() -> None:
                 text("ALTER TABLE container_data ADD COLUMN target_gas_level_min FLOAT NULL")
             )
 
+        if "target_temperature_min" not in container_data_columns:
+            connection.execute(
+                text("ALTER TABLE container_data ADD COLUMN target_temperature_min FLOAT NULL")
+            )
+
+        if "target_humidity_min" not in container_data_columns:
+            connection.execute(
+                text("ALTER TABLE container_data ADD COLUMN target_humidity_min FLOAT NULL")
+            )
+
+        if "target_light_level_min" not in container_data_columns:
+            connection.execute(
+                text("ALTER TABLE container_data ADD COLUMN target_light_level_min FLOAT NULL")
+            )
+
 
 Base.metadata.create_all(bind=engine)
 _ensure_user_schema_columns()

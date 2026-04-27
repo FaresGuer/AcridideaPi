@@ -63,8 +63,11 @@ class ContainerData(Base):
     humidifier_status = Column(Boolean, default=False, nullable=False)
 
     target_temperature = Column(Float, nullable=True)
+    target_temperature_min = Column(Float, nullable=True)
     target_humidity = Column(Float, nullable=True)
+    target_humidity_min = Column(Float, nullable=True)
     target_light_level = Column(Float, nullable=True)
+    target_light_level_min = Column(Float, nullable=True)
     target_gas_level = Column(Float, nullable=True)
     target_gas_level_min = Column(Float, nullable=True)
 

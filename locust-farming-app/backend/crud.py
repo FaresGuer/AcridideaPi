@@ -73,8 +73,11 @@ def create_container(db: Session, container: ContainerCreate, created_by: int):
         light_status=False,
         humidifier_status=False,
         target_temperature=25.0,
+        target_temperature_min=20.0,
         target_humidity=60.0,
+        target_humidity_min=40.0,
         target_light_level=75.0,
+        target_light_level_min=30.0,
         target_gas_level=1500.0,
         target_gas_level_min=1000.0,
     )
@@ -158,10 +161,16 @@ def update_container_data(db: Session, container_id: int, data_update: Container
         db_data.humidifier_status = data_update.humidifier_status
     if data_update.target_temperature is not None:
         db_data.target_temperature = data_update.target_temperature
+    if data_update.target_temperature_min is not None:
+        db_data.target_temperature_min = data_update.target_temperature_min
     if data_update.target_humidity is not None:
         db_data.target_humidity = data_update.target_humidity
+    if data_update.target_humidity_min is not None:
+        db_data.target_humidity_min = data_update.target_humidity_min
     if data_update.target_light_level is not None:
         db_data.target_light_level = data_update.target_light_level
+    if data_update.target_light_level_min is not None:
+        db_data.target_light_level_min = data_update.target_light_level_min
     if data_update.target_gas_level is not None:
         db_data.target_gas_level = data_update.target_gas_level
     if data_update.target_gas_level_min is not None:
