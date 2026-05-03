@@ -1,5 +1,7 @@
 import paho.mqtt.client as mqtt
+import os
 import psycopg
+import mysql.connector
 from datetime import datetime
 import time
 
@@ -12,6 +14,17 @@ DEFAULT_CONTAINER_ID = 8
 DATABASE_URL = "postgresql://neondb_owner:npg_ib5XlIOF2uxf@ep-restless-violet-anmpow2v.c-6.us-east-1.aws.neon.tech/locust_farm?sslmode=require"
 THRESHOLD_CACHE_SECONDS = 30
 DB_WRITE_MIN_INTERVAL_SECONDS = 0.5
+
+# ⚠️ For testing on PC with local MySQL
+# When deploying to Raspberry Pi, change host to "localhost"
+# and user/password to "locust"/"locust123"
+# Backwards-compatible DB_CONFIG (from old gateway)
+DB_CONFIG = {
+    "host":     "localhost",
+    "user":     "root",
+    "password": "",
+    "database": "locust_farm"
+}
 
 
 # Topics — sensors ESP publishes
@@ -56,6 +69,16 @@ def get_db():
     return _db_conn
 
 
+def get_mysql_conn():
+    """Return a new MySQL connection using mysql-connector (matches old gateway style)."""
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        return conn
+    except Exception as e:
+        print(f"[MySQL] Connection failed: {e}")
+        return None
+
+
 def _get_default_thresholds():
     return {
         "target_temperature": 25.0,
@@ -69,11 +92,56 @@ def _get_default_thresholds():
     }
 
 def fetch_thresholds(container_id):
+    """Try to read thresholds from local MySQL first (fast). Fall back to Postgres, then defaults."""
     cached = _threshold_cache.get(container_id)
     now_ts = time.time()
     if cached and now_ts - cached["ts"] < THRESHOLD_CACHE_SECONDS:
         return cached["data"]
 
+    # 1) Try MySQL local (use dictionary cursor as in the original gateway)
+    try:
+        mysql_conn = get_mysql_conn()
+        if mysql_conn:
+            cur = mysql_conn.cursor(dictionary=True)
+            cur.execute(
+                """
+                SELECT target_temperature, target_temperature_min,
+                       target_humidity,    target_humidity_min,
+                       target_light_level, target_light_level_min,
+                       target_gas_level,   target_gas_level_min
+                FROM container_data
+                WHERE container_id = %s
+                """,
+                (container_id,)
+            )
+            row = cur.fetchone()
+            try:
+                cur.close()
+            except Exception:
+                pass
+            try:
+                mysql_conn.close()
+            except Exception:
+                pass
+
+            if row and any(v is not None for v in row.values()):
+                # row is a dict, map keys to expected names (keep numeric types)
+                values = {
+                    "target_temperature":     row.get("target_temperature"),
+                    "target_temperature_min": row.get("target_temperature_min"),
+                    "target_humidity":        row.get("target_humidity"),
+                    "target_humidity_min":    row.get("target_humidity_min"),
+                    "target_light_level":     row.get("target_light_level"),
+                    "target_light_level_min": row.get("target_light_level_min"),
+                    "target_gas_level":       row.get("target_gas_level"),
+                    "target_gas_level_min":   row.get("target_gas_level_min")
+                }
+                _threshold_cache[container_id] = {"ts": now_ts, "data": values}
+                return values
+    except Exception as e:
+        print(f"[MySQL] Failed to fetch thresholds: {e}")
+
+    # 2) Fallback to Postgres (Neon)
     try:
         db = get_db()
         with db.cursor() as cur:
@@ -86,7 +154,7 @@ def fetch_thresholds(container_id):
                 WHERE container_id = %s
             """, (container_id,))
             row = cur.fetchone()
-        
+
         if row:
             values = {
                 "target_temperature":     row[0],
@@ -104,7 +172,7 @@ def fetch_thresholds(container_id):
         _threshold_cache[container_id] = {"ts": now_ts, "data": values}
         return values
     except Exception as e:
-        print(f"[DB] Failed to fetch thresholds: {e}")
+        print(f"[DB] Failed to fetch thresholds from Postgres: {e}")
         return _get_default_thresholds()
 
 def update_db(temp, hum, lux_percent, gas, heater, fan, light, humidifier, container_id):
@@ -146,6 +214,45 @@ def update_db(temp, hum, lux_percent, gas, heater, fan, light, humidifier, conta
         print(f"[DB] Updated container_data for container {container_id}")
     except Exception as e:
         print(f"[DB] Error: {e}")
+
+    # Also write to local MySQL (best-effort). Keep Postgres as primary but mirror to MySQL.
+    try:
+        mysql_conn = get_mysql_conn()
+        if not mysql_conn:
+            return
+        cur = mysql_conn.cursor()
+        cur.execute(
+            """
+            UPDATE container_data
+            SET temperature = %s,
+                humidity = %s,
+                light_level = %s,
+                gas_level = %s,
+                heater_status = %s,
+                fan_status = %s,
+                light_status = %s,
+                humidifier_status = %s,
+                last_updated = %s
+            WHERE container_id = %s
+            """,
+            (
+                temp, hum, lux_percent, gas,
+                heater_status, fan_status, light_status, humidifier_status,
+                datetime.now(), container_id
+            ),
+        )
+        mysql_conn.commit()
+        try:
+            cur.close()
+        except Exception:
+            pass
+        try:
+            mysql_conn.close()
+        except Exception:
+            pass
+        print(f"[MySQL] Mirrored container_data for container {container_id}")
+    except Exception as e:
+        print(f"[MySQL] Error writing mirror: {e}")
 
 # ─── Decision Logic ───────────────────────────────────────
 def adc_to_percent(adc_value):
@@ -281,14 +388,26 @@ def on_message(client, userdata, msg):
     lux_percent = adc_to_percent(lux)
     update_db(temp, hum, lux_percent, gas, heater, fan, light, humidifier, container_id)
 
+
+def on_disconnect(client, userdata, *args):
+    # Accept any callback signature (paho can call with varying args)
+    try:
+        print(f"[MQTT] Disconnected — userdata={userdata} args={args}")
+    except Exception:
+        print("[MQTT] Disconnected (failed to format args)")
+
+
 # ─── Main ─────────────────────────────────────────────────
 def main():
+    # Use a unique client_id to avoid collisions with other clients
+    client_id = f"Gateway-{os.getpid()}"
     try:
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="Gateway")
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
     except AttributeError:
-        client = mqtt.Client(client_id="Gateway")
+        client = mqtt.Client(client_id=client_id)
     client.on_connect = on_connect
     client.on_message = on_message
+    client.on_disconnect = on_disconnect
 
     print(f"[GW] Connecting to {MQTT_BROKER}...")
     client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)

@@ -42,6 +42,7 @@ dependencies:
   pdf: ^3.11.3
   printing: ^5.13.4
   mqtt_client: ^9.7.0
+  mysql1: ^0.19.2
 
 dev_dependencies:
   flutter_test:

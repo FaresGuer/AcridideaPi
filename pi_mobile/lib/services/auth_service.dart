@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'local_db_service.dart';
 import '../models/auth_user.dart';
 import '../models/container.dart';
 import '../models/worker_invitation.dart';
@@ -601,6 +602,12 @@ class AuthService {
       throw Exception('Not logged in');
     }
 
+    // Prefer local MySQL reads if available
+    try {
+      final local = await LocalDbService().fetchContainerData(containerId);
+      if (local != null) return local;
+    } catch (_) {}
+
     final response = await http.get(
       Uri.parse('$_baseUrl/containers/$containerId/data'),
       headers: {
@@ -622,6 +629,12 @@ class AuthService {
     if (_token == null) {
       throw Exception('Not logged in');
     }
+
+    // Prefer local MySQL history if available
+    try {
+      final local = await LocalDbService().fetchContainerHistory(containerId, limit: limit);
+      if (local.isNotEmpty) return local;
+    } catch (_) {}
 
     final response = await http.get(
       Uri.parse('$_baseUrl/containers/$containerId/history?limit=$limit'),
@@ -681,6 +694,11 @@ class AuthService {
       },
       body: jsonEncode(body),
     );
+
+    // Mirror to local MySQL (best-effort) so mobile reads remain fast
+    try {
+      await LocalDbService().writeContainerData(containerId, body);
+    } catch (_) {}
 
     if (response.statusCode != 200) {
       throw Exception(_extractError(response));

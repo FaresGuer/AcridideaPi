@@ -11,6 +11,7 @@ from schemas import (
     FeedingScheduleUpdate,
 )
 from auth import hash_password
+from database import mirror_to_mysql
 
 
 def _resolve_min_max(min_value: float | None, max_value: float | None):
@@ -403,6 +404,7 @@ def record_container_sensor_history_snapshot(db: Session, container_id: int, dat
     }
 
     created = False
+    now = datetime.utcnow()
     for sensor_type, value in sensor_values.items():
         if value is None:
             continue
@@ -418,6 +420,13 @@ def record_container_sensor_history_snapshot(db: Session, container_id: int, dat
             value=value,
         )
         db.add(db_entry)
+        
+        # Mirror to MySQL (best-effort)
+        mirror_to_mysql(
+            "INSERT INTO container_sensor_history (container_id, sensor_type, value, recorded_at) VALUES (%s, %s, %s, %s)",
+            (container_id, sensor_type, value, now),
+        )
+        
         created = True
 
     if created:
@@ -478,55 +487,85 @@ def update_container_data(
         )
     )
 
+    # Track fields for MySQL mirror
+    mysql_updates = {}
+
     # Update fields
     manual_overrides: set[str] = set()
 
     if data_update.temperature is not None:
         db_data.temperature = data_update.temperature
+        mysql_updates['temperature'] = data_update.temperature
     if data_update.humidity is not None:
         db_data.humidity = data_update.humidity
+        mysql_updates['humidity'] = data_update.humidity
     if data_update.light_level is not None:
         db_data.light_level = data_update.light_level
+        mysql_updates['light_level'] = data_update.light_level
     if data_update.gas_level is not None:
         db_data.gas_level = data_update.gas_level
+        mysql_updates['gas_level'] = data_update.gas_level
     if data_update.heater_status is not None:
         db_data.heater_status = data_update.heater_status
+        mysql_updates['heater_status'] = data_update.heater_status
         if not has_sensor_or_threshold_updates:
             manual_overrides.add("heater_status")
     if data_update.fan_status is not None:
         db_data.fan_status = data_update.fan_status
+        mysql_updates['fan_status'] = data_update.fan_status
         if not has_sensor_or_threshold_updates:
             manual_overrides.add("fan_status")
     if data_update.light_status is not None:
         db_data.light_status = data_update.light_status
+        mysql_updates['light_status'] = data_update.light_status
         if not has_sensor_or_threshold_updates:
             manual_overrides.add("light_status")
     if data_update.humidifier_status is not None:
         db_data.humidifier_status = data_update.humidifier_status
+        mysql_updates['humidifier_status'] = data_update.humidifier_status
         if not has_sensor_or_threshold_updates:
             manual_overrides.add("humidifier_status")
     if data_update.target_temperature is not None:
         db_data.target_temperature = data_update.target_temperature
+        mysql_updates['target_temperature'] = data_update.target_temperature
     if data_update.target_temperature_min is not None:
         db_data.target_temperature_min = data_update.target_temperature_min
+        mysql_updates['target_temperature_min'] = data_update.target_temperature_min
     if data_update.target_humidity is not None:
         db_data.target_humidity = data_update.target_humidity
+        mysql_updates['target_humidity'] = data_update.target_humidity
     if data_update.target_humidity_min is not None:
         db_data.target_humidity_min = data_update.target_humidity_min
+        mysql_updates['target_humidity_min'] = data_update.target_humidity_min
     if data_update.target_light_level is not None:
         db_data.target_light_level = data_update.target_light_level
+        mysql_updates['target_light_level'] = data_update.target_light_level
     if data_update.target_light_level_min is not None:
         db_data.target_light_level_min = data_update.target_light_level_min
+        mysql_updates['target_light_level_min'] = data_update.target_light_level_min
     if data_update.target_gas_level is not None:
         db_data.target_gas_level = data_update.target_gas_level
+        mysql_updates['target_gas_level'] = data_update.target_gas_level
     if data_update.target_gas_level_min is not None:
         db_data.target_gas_level_min = data_update.target_gas_level_min
+        mysql_updates['target_gas_level_min'] = data_update.target_gas_level_min
 
     if apply_automatic_logic:
         _apply_automatic_actuator_logic(db_data, manual_overrides=manual_overrides)
     
     db.commit()
     db.refresh(db_data)
+    
+    # Mirror to MySQL (best-effort)
+    if mysql_updates:
+        set_clause = ", ".join(f"{k} = %s" for k in mysql_updates.keys())
+        values = list(mysql_updates.values())
+        values.append(container_id)
+        mirror_to_mysql(
+            f"UPDATE container_data SET {set_clause} WHERE container_id = %s",
+            tuple(values),
+        )
+    
     return db_data
 
 
