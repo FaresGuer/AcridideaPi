@@ -11,7 +11,7 @@ DEFAULT_CONTAINER_ID = 8
 # ⚠️ Neon PostgreSQL connection string (cloud)
 DATABASE_URL = "postgresql://neondb_owner:npg_ib5XlIOF2uxf@ep-restless-violet-anmpow2v.c-6.us-east-1.aws.neon.tech/locust_farm?sslmode=require"
 THRESHOLD_CACHE_SECONDS = 30
-DB_WRITE_MIN_INTERVAL_SECONDS = 1.0
+DB_WRITE_MIN_INTERVAL_SECONDS = 0.5
 
 
 # Topics — sensors ESP publishes
