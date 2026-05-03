@@ -483,6 +483,11 @@ class AuthService {
     }
 
     final containerJson = jsonDecode(response.body) as Map<String, dynamic>;
+    // Mirror to local MySQL (best-effort) so mobile local cache includes the new container
+    try {
+      await LocalDbService().createContainerLocal(containerJson);
+    } catch (_) {}
+
     return Container.fromJson(containerJson);
   }
 

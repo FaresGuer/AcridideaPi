@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import inspect, text
 from datetime import timedelta, datetime
 
-from database import Base, engine, get_db
+from database import Base, get_db, primary_engine, secondary_engine
 from models import User, Container, ContainerSensorHistory
 from schemas import (
     UserCreate,
@@ -41,10 +41,10 @@ from auth import (
 
 
 def _ensure_user_schema_columns() -> None:
-    inspector = inspect(engine)
+    inspector = inspect(primary_engine)
     user_columns = {column["name"] for column in inspector.get_columns("users")}
 
-    with engine.begin() as connection:
+    with primary_engine.begin() as connection:
         if "role_selected" not in user_columns:
             connection.execute(
                 text("ALTER TABLE users ADD COLUMN role_selected BOOLEAN NOT NULL DEFAULT FALSE")
@@ -57,10 +57,10 @@ def _ensure_user_schema_columns() -> None:
 
 
 def _ensure_container_data_schema_columns() -> None:
-    inspector = inspect(engine)
+    inspector = inspect(primary_engine)
     container_data_columns = {column["name"] for column in inspector.get_columns("container_data")}
 
-    with engine.begin() as connection:
+    with primary_engine.begin() as connection:
         if "target_light_level" not in container_data_columns:
             connection.execute(
                 text("ALTER TABLE container_data ADD COLUMN target_light_level FLOAT NULL")
@@ -102,9 +102,16 @@ def _ensure_container_data_schema_columns() -> None:
             )
 
 
-Base.metadata.create_all(bind=engine)
-_ensure_user_schema_columns()
-_ensure_container_data_schema_columns()
+# Ensure tables exist on primary and secondary databases
+if primary_engine is not None:
+    Base.metadata.create_all(bind=primary_engine)
+    inspector = inspect(primary_engine)
+    _ensure_user_schema_columns()
+    _ensure_container_data_schema_columns()
+
+if secondary_engine is not None:
+    # Create tables on secondary as well so replication can insert rows
+    Base.metadata.create_all(bind=secondary_engine)
 
 app = FastAPI(
     title="Locust Farm Management API",

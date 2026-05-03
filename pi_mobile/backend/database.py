@@ -84,15 +84,19 @@ def mirror_to_mysql(query: str, values: tuple = ()) -> bool:
             pool_pre_ping=True,
             connect_args={"connect_timeout": 10},
         )
-        connection = neon_engine.connect()
+        # Use a raw DBAPI connection for widest compatibility with cursor.execute
+        raw_conn = neon_engine.raw_connection()
         try:
-            cursor = connection.connection.cursor()
+            cursor = raw_conn.cursor()
             cursor.execute(query, values)
-            connection.connection.commit()
+            raw_conn.commit()
             cursor.close()
         finally:
-            connection.close()
+            try:
+                raw_conn.close()
+            except Exception:
+                pass
         return True
     except Exception as e:
-        print(f"[Neon] Mirror write failed: {e}")
+        print(f"[Neon] Mirror write failed: {e}\nQuery: {query}\nValues: {values}")
         return False

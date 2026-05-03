@@ -85,20 +85,53 @@ def _resolve_database_url() -> str:
     return url
 
 
-DATABASE_URL = _resolve_database_url()
+# Resolve both primary (MySQL if available) and secondary (Postgres/Neon)
+_mysql_url = _try_mysql_connection()
+_pg_url = os.getenv("DATABASE_URL")
+if _pg_url:
+    _, _pg_url = _resolve_postgres_driver(_pg_url)
 
-engine = create_engine(
-    DATABASE_URL,
-    echo=False,
-    pool_pre_ping=True,
-)
+PRIMARY_DATABASE_URL = _mysql_url or _pg_url or _resolve_database_url()
+SECONDARY_DATABASE_URL = None
+if _mysql_url and _pg_url:
+    SECONDARY_DATABASE_URL = _pg_url
+elif not _mysql_url and _pg_url:
+    # No secondary when primary is Postgres
+    SECONDARY_DATABASE_URL = None
+elif _mysql_url and not _pg_url:
+    SECONDARY_DATABASE_URL = None
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+print(f"[DB] Primary DB URL: {PRIMARY_DATABASE_URL}")
+if SECONDARY_DATABASE_URL:
+    print(f"[DB] Secondary DB URL: {SECONDARY_DATABASE_URL}")
+
+primary_engine = create_engine(PRIMARY_DATABASE_URL, echo=False, pool_pre_ping=True)
+SessionLocalPrimary = sessionmaker(autocommit=False, autoflush=False, bind=primary_engine)
+
+# Secondary engine/session (optional)
+primary_engine = primary_engine
+secondary_engine = None
+SessionLocalSecondary = None
+if SECONDARY_DATABASE_URL:
+    secondary_engine = create_engine(SECONDARY_DATABASE_URL, echo=False, pool_pre_ping=True)
+    SessionLocalSecondary = sessionmaker(autocommit=False, autoflush=False, bind=secondary_engine)
+
 Base = declarative_base()
 
 
 def get_db():
-    db = SessionLocal()
+    db = SessionLocalPrimary()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_secondary_db():
+    """Return a session for the secondary DB or None if not configured."""
+    if SessionLocalSecondary is None:
+        return None
+    db = SessionLocalSecondary()
     try:
         yield db
     finally:

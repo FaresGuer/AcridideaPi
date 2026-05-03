@@ -137,4 +137,73 @@ class LocalDbService {
       // best-effort, ignore errors
     }
   }
+
+  /// Create container and its container_data row in the local MySQL DB.
+  /// Expects the same shape as the API `ContainerResponse`.
+  Future<void> createContainerLocal(Map<String, dynamic> containerJson) async {
+    try {
+      final conn = await _connect();
+
+      final int id = containerJson['id'];
+      final String name = containerJson['name'] ?? '';
+      final double latitude = (containerJson['latitude'] ?? 0).toDouble();
+      final double longitude = (containerJson['longitude'] ?? 0).toDouble();
+      final int createdBy = containerJson['created_by'] ?? 0;
+
+      // Insert container row (ignore if exists)
+      await conn.query(
+        'INSERT INTO containers (id, name, created_by, latitude, longitude, created_at) VALUES (?, ?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name), latitude = VALUES(latitude), longitude = VALUES(longitude)',
+        [id, name, createdBy, latitude, longitude],
+      );
+
+      // Insert container_data default row if not exists
+      final data = containerJson['data'] as Map<String, dynamic>?;
+      if (data != null) {
+        await conn.query(
+          '''
+          INSERT INTO container_data (container_id, temperature, humidity, light_level, gas_level, heater_status, fan_status, light_status, humidifier_status, target_temperature, target_temperature_min, target_humidity, target_humidity_min, target_light_level, target_light_level_min, target_gas_level, target_gas_level_min, last_updated)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            temperature = VALUES(temperature), humidity = VALUES(humidity), light_level = VALUES(light_level), gas_level = VALUES(gas_level),
+            heater_status = VALUES(heater_status), fan_status = VALUES(fan_status), light_status = VALUES(light_status), humidifier_status = VALUES(humidifier_status),
+            target_temperature = VALUES(target_temperature), target_temperature_min = VALUES(target_temperature_min),
+            target_humidity = VALUES(target_humidity), target_humidity_min = VALUES(target_humidity_min),
+            target_light_level = VALUES(target_light_level), target_light_level_min = VALUES(target_light_level_min),
+            target_gas_level = VALUES(target_gas_level), target_gas_level_min = VALUES(target_gas_level_min),
+            last_updated = VALUES(last_updated)
+          ''',
+          [
+            id,
+            data['temperature'],
+            data['humidity'],
+            data['light_level'],
+            data['gas_level'],
+            data['heater_status'] == true ? 1 : 0,
+            data['fan_status'] == true ? 1 : 0,
+            data['light_status'] == true ? 1 : 0,
+            data['humidifier_status'] == true ? 1 : 0,
+            data['target_temperature'],
+            data['target_temperature_min'],
+            data['target_humidity'],
+            data['target_humidity_min'],
+            data['target_light_level'],
+            data['target_light_level_min'],
+            data['target_gas_level'],
+            data['target_gas_level_min'],
+            data['last_updated']?.toString(),
+          ],
+        );
+      } else {
+        // Ensure there is at least an empty container_data row
+        await conn.query(
+          'INSERT IGNORE INTO container_data (container_id) VALUES (?)',
+          [id],
+        );
+      }
+
+      await conn.close();
+    } catch (e) {
+      // best-effort, ignore errors
+    }
+  }
 }

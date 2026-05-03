@@ -84,6 +84,66 @@ def create_container(db: Session, container: ContainerCreate, created_by: int):
     db.add(db_container_data)
     db.commit()
     db.refresh(db_container)
+    # Try to replicate to secondary DB (best-effort)
+    try:
+        from database import SessionLocalSecondary
+        from sqlalchemy import insert
+
+        if SessionLocalSecondary is not None:
+            sec_db = SessionLocalSecondary()
+            try:
+                # Use core insert to avoid ORM/engine binding issues
+                sec_db.execute(
+                    insert(Container.__table__).values(
+                        id=db_container.id,
+                        name=db_container.name,
+                        created_by=db_container.created_by,
+                        latitude=db_container.latitude,
+                        longitude=db_container.longitude,
+                        created_at=db_container.created_at,
+                        updated_at=db_container.updated_at,
+                    )
+                )
+
+                sec_db.execute(
+                    insert(ContainerData.__table__).values(
+                        container_id=db_container.id,
+                        temperature=None,
+                        humidity=None,
+                        light_level=None,
+                        gas_level=None,
+                        heater_status=False,
+                        fan_status=False,
+                        light_status=False,
+                        humidifier_status=False,
+                        target_temperature=25.0,
+                        target_temperature_min=20.0,
+                        target_humidity=60.0,
+                        target_humidity_min=40.0,
+                        target_light_level=75.0,
+                        target_light_level_min=30.0,
+                        target_gas_level=1500.0,
+                        target_gas_level_min=1000.0,
+                        last_updated=None,
+                    )
+                )
+
+                sec_db.commit()
+            except Exception as e:
+                try:
+                    sec_db.rollback()
+                except Exception:
+                    pass
+                print(f"[DB-REPL] Failed to replicate container to secondary DB: {e}")
+            finally:
+                try:
+                    sec_db.close()
+                except Exception:
+                    pass
+    except Exception:
+        # ignore any replication import errors
+        pass
+
     return db_container
 
 
