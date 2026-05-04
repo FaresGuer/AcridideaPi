@@ -24,6 +24,7 @@ const Profile = () => {
         target_temperature: 25,
         target_humidity: 60,
         target_light_level: 75,
+        target_gas_level: 400,
     });
     const [profile, setProfile] = useState({
         full_name: '',
@@ -97,6 +98,7 @@ const Profile = () => {
                     target_temperature: data.target_temperature ?? 25,
                     target_humidity: data.target_humidity ?? 60,
                     target_light_level: data.target_light_level ?? 75,
+                    target_gas_level: data.target_gas_level ?? 400,
                 });
             } catch (err) {
                 setMessage(err.message || 'Failed to load container thresholds');
@@ -388,6 +390,24 @@ const Profile = () => {
                                                 setThresholds((prev) => ({
                                                     ...prev,
                                                     target_light_level: Number(e.target.value),
+                                                }))
+                                            }
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className={`block text-xs mb-2 uppercase tracking-wider ${labelClass}`}>
+                                            Target Gas Level (ppm)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="0.1"
+                                            className={inputClass}
+                                            value={thresholds.target_gas_level}
+                                            onChange={(e) =>
+                                                setThresholds((prev) => ({
+                                                    ...prev,
+                                                    target_gas_level: Number(e.target.value),
                                                 }))
                                             }
                                         />

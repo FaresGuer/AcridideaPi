@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import inspect, text
 from datetime import timedelta, datetime
 
-from database import Base, get_db, primary_engine, secondary_engine
+from database import Base, get_db, primary_engine
 from models import User, Container, ContainerSensorHistory
 from schemas import (
     UserCreate,
@@ -102,16 +102,12 @@ def _ensure_container_data_schema_columns() -> None:
             )
 
 
-# Ensure tables exist on primary and secondary databases
+# Ensure tables exist on primary database
 if primary_engine is not None:
     Base.metadata.create_all(bind=primary_engine)
     inspector = inspect(primary_engine)
     _ensure_user_schema_columns()
     _ensure_container_data_schema_columns()
-
-if secondary_engine is not None:
-    # Create tables on secondary as well so replication can insert rows
-    Base.metadata.create_all(bind=secondary_engine)
 
 app = FastAPI(
     title="Locust Farm Management API",

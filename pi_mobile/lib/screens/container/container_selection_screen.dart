@@ -8,6 +8,8 @@ import '../../models/auth_user.dart';
 import '../../models/container.dart' as models;
 import 'no_container_page.dart';
 import 'add_container_dialog.dart';
+import 'edit_container_dialog.dart';
+import 'container_actions_popup.dart';
 import '../notifications/notifications_screen.dart';
 import '../account/account_management_screen.dart';
 
@@ -121,12 +123,11 @@ class _ContainerSelectionScreenState extends State<ContainerSelectionScreen> {
                     itemCount: containers.length,
                     itemBuilder: (context, index) {
                       final container = containers[index];
-                      // ...existing code...
                       return _ContainerGridCard(
                         container: container,
                         index: index,
-                        // isWarning removed as it's calculated internally
                         imageAsset: 'assets/images/locust_camera.jpg',
+                        onRefresh: _loadContainers,
                       );
                     },
                   );
@@ -222,11 +223,13 @@ class _ContainerGridCard extends StatelessWidget {
   final models.Container container;
   final int index;
   final String? imageAsset;
+  final VoidCallback? onRefresh;
 
   const _ContainerGridCard({
     required this.container,
     required this.index,
     this.imageAsset,
+    this.onRefresh,
   });
 
   @override
@@ -256,6 +259,9 @@ class _ContainerGridCard extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         ContainerService.selectContainer(container);
+      },
+      onLongPress: () {
+        _showContainerActions(context);
       },
       child: Container(
         decoration: BoxDecoration(
@@ -451,6 +457,29 @@ class _ContainerGridCard extends StatelessWidget {
           style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.bold),
         ),
       ],
+    );
+  }
+
+  void _showContainerActions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => ContainerActionsBottomSheet(
+        container: container,
+        onUpdate: () async {
+          final result = await showDialog<bool>(
+            context: context,
+            builder: (context) => EditContainerMapDialog(container: container),
+          );
+          if (result == true && onRefresh != null) {
+            onRefresh!();
+          }
+        },
+        onDelete: () {
+          if (onRefresh != null) {
+            onRefresh!();
+          }
+        },
+      ),
     );
   }
 }

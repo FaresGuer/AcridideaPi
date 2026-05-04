@@ -8,6 +8,8 @@ import '../../services/auth_service.dart';
 import '../../services/container_service.dart';
 import '../auth/login_screen.dart';
 import '../container/container_router.dart';
+import '../container/edit_container_dialog.dart';
+import '../container/container_actions_popup.dart';
 
 class AccountManagementScreen extends StatefulWidget {
   final int? initialTab;
@@ -861,35 +863,39 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
                       final isLast = index == containers.length - 1;
                       return Column(
                         children: [
-                          InkWell(
+                          GestureDetector(
                             onTap: () => _showContainerWorkersDialog(container),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 24,
-                                    backgroundColor: Color(0xFFBBDEFB),
-                                    child: Icon(Icons.location_on, color: AppColors.primary),
-                                  ),
-                                  SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          container.name,
-                                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
-                                        ),
-                                        Text(
-                                          'Lat: ${container.latitude.toStringAsFixed(4)}, Lng: ${container.longitude.toStringAsFixed(4)}',
-                                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                        ),
-                                      ],
+                            onLongPress: () => _showContainerActionsMenu(container),
+                            child: InkWell(
+                              onTap: () => _showContainerWorkersDialog(container),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 24,
+                                      backgroundColor: Color(0xFFBBDEFB),
+                                      child: Icon(Icons.location_on, color: AppColors.primary),
                                     ),
-                                  ),
-                                  Icon(Icons.chevron_right, color: AppColors.textSecondary),
-                                ],
+                                    SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            container.name,
+                                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+                                          ),
+                                          Text(
+                                            'Lat: ${container.latitude.toStringAsFixed(4)}, Lng: ${container.longitude.toStringAsFixed(4)}',
+                                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -948,6 +954,27 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> with 
             child: Text('Close'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showContainerActionsMenu(app_models.Container container) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => ContainerActionsBottomSheet(
+        container: container,
+        onUpdate: () async {
+          final result = await showDialog<bool>(
+            context: context,
+            builder: (context) => EditContainerMapDialog(container: container),
+          );
+          if (result == true) {
+            _refreshContainers();
+          }
+        },
+        onDelete: () {
+          _refreshContainers();
+        },
       ),
     );
   }

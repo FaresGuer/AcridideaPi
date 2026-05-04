@@ -1,6 +1,7 @@
 """
 Initialize the database and create tables.
 Run this script before starting the application for the first time.
+Requires MySQL to be running and accessible with credentials from .env
 """
 import sys
 from dotenv import load_dotenv
@@ -12,10 +13,8 @@ from database import Base, engine
 
 
 def create_tables():
-    """Create ORM tables in the configured database."""
+    """Create ORM tables in the MySQL database."""
     try:
-        # For managed databases (Neon, etc.), the database already exists.
-        # For local Postgres, use createdb separately or create schema here.
         Base.metadata.create_all(bind=engine)
         print("✓ Database tables created successfully")
         print("\nNext steps:")
@@ -28,12 +27,9 @@ def create_tables():
 
 
 if __name__ == "__main__":
-    database_url = os.getenv("DATABASE_URL")
-    if database_url:
-        print("Connecting using DATABASE_URL (Neon or cloud service)...")
-    else:
-        db_host = os.getenv("DB_HOST", "localhost")
-        db_name = os.getenv("DB_NAME", "locust_farm")
-        print(f"Connecting to PostgreSQL at {db_host}...")
-        print(f"Database: {db_name}")
+    db_host = os.getenv("DB_HOST", "localhost")
+    db_port = os.getenv("DB_PORT", "3306")
+    db_name = os.getenv("DB_NAME", "locust_farm")
+    print(f"Connecting to MySQL at {db_host}:{db_port}...")
+    print(f"Database: {db_name}")
     create_tables()

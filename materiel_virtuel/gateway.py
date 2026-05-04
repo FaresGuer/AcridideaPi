@@ -1,6 +1,5 @@
 import paho.mqtt.client as mqtt
 import os
-import psycopg
 import mysql.connector
 from datetime import datetime
 import time
@@ -10,12 +9,11 @@ MQTT_BROKER          = "broker.hivemq.com"
 MQTT_PORT            = 1883
 DEFAULT_CONTAINER_ID = 8
 
-# ⚠️ Neon PostgreSQL connection string (cloud)
-DATABASE_URL = "postgresql://neondb_owner:npg_ib5XlIOF2uxf@ep-restless-violet-anmpow2v.c-6.us-east-1.aws.neon.tech/locust_farm?sslmode=require"
+# ⚠️ Local MySQL configuration (primary database)
 THRESHOLD_CACHE_SECONDS = 30
 DB_WRITE_MIN_INTERVAL_SECONDS = 0.5
 
-# ⚠️ For testing on PC with local MySQL
+# MySQL configuration (for local Raspberry Pi)
 # When deploying to Raspberry Pi, change host to "localhost"
 # and user/password to "locust"/"locust123"
 # Backwards-compatible DB_CONFIG (from old gateway)
@@ -56,19 +54,10 @@ latest = {
     "gas":         None,
     "light_level": None
 }
-_db_conn = None
 _threshold_cache = {}
 _last_db_write_ts = 0.0
 
 # ─── Database ─────────────────────────────────────────────
-def get_db():
-    """Reuse one PostgreSQL connection to avoid TLS handshake on every message."""
-    global _db_conn
-    if _db_conn is None or _db_conn.closed:
-        _db_conn = psycopg.connect(DATABASE_URL)
-    return _db_conn
-
-
 def get_mysql_conn():
     """Return a new MySQL connection using mysql-connector (matches old gateway style)."""
     try:
@@ -92,13 +81,13 @@ def _get_default_thresholds():
     }
 
 def fetch_thresholds(container_id):
-    """Try to read thresholds from local MySQL first (fast). Fall back to Postgres, then defaults."""
+    """Read thresholds from local MySQL. Fall back to defaults if unavailable."""
     cached = _threshold_cache.get(container_id)
     now_ts = time.time()
     if cached and now_ts - cached["ts"] < THRESHOLD_CACHE_SECONDS:
         return cached["data"]
 
-    # 1) Try MySQL local (use dictionary cursor as in the original gateway)
+    # Try MySQL local (use dictionary cursor as in the original gateway)
     try:
         mysql_conn = get_mysql_conn()
         if mysql_conn:
@@ -141,39 +130,8 @@ def fetch_thresholds(container_id):
     except Exception as e:
         print(f"[MySQL] Failed to fetch thresholds: {e}")
 
-    # 2) Fallback to Postgres (Neon)
-    try:
-        db = get_db()
-        with db.cursor() as cur:
-            cur.execute("""
-                SELECT target_temperature, target_temperature_min,
-                       target_humidity,    target_humidity_min,
-                       target_light_level, target_light_level_min,
-                       target_gas_level,   target_gas_level_min
-                FROM container_data
-                WHERE container_id = %s
-            """, (container_id,))
-            row = cur.fetchone()
-
-        if row:
-            values = {
-                "target_temperature":     row[0],
-                "target_temperature_min": row[1],
-                "target_humidity":        row[2],
-                "target_humidity_min":    row[3],
-                "target_light_level":     row[4],
-                "target_light_level_min": row[5],
-                "target_gas_level":       row[6],
-                "target_gas_level_min":   row[7]
-            }
-        else:
-            values = _get_default_thresholds()
-
-        _threshold_cache[container_id] = {"ts": now_ts, "data": values}
-        return values
-    except Exception as e:
-        print(f"[DB] Failed to fetch thresholds from Postgres: {e}")
-        return _get_default_thresholds()
+    # Return defaults if MySQL unavailable
+    return _get_default_thresholds()
 
 def update_db(temp, hum, lux_percent, gas, heater, fan, light, humidifier, container_id):
     global _last_db_write_ts
@@ -181,46 +139,17 @@ def update_db(temp, hum, lux_percent, gas, heater, fan, light, humidifier, conta
     if now_ts - _last_db_write_ts < DB_WRITE_MIN_INTERVAL_SECONDS:
         return
 
-    try:
-        db = get_db()
-        with db.cursor() as cur:
-            heater_status = bool(heater)
-            fan_status = bool(fan)
-            light_status = bool(light)
-            humidifier_status = bool(humidifier)
-
-            # Update current state
-            cur.execute("""
-                UPDATE container_data
-                SET temperature       = %s,
-                    humidity          = %s,
-                    light_level       = %s,
-                    gas_level         = %s,
-                    heater_status     = %s,
-                    fan_status        = %s,
-                    light_status      = %s,
-                    humidifier_status = %s,
-                    last_updated      = %s
-                WHERE container_id = %s
-            """, (
-                temp, hum, lux_percent, gas,
-                heater_status, fan_status, light_status, humidifier_status,
-                datetime.now(),
-                container_id
-            ))
-
-        db.commit()
-        _last_db_write_ts = now_ts
-        print(f"[DB] Updated container_data for container {container_id}")
-    except Exception as e:
-        print(f"[DB] Error: {e}")
-
-    # Also write to local MySQL (best-effort). Keep Postgres as primary but mirror to MySQL.
+    # Write to local MySQL only (no Postgres/Neon)
     try:
         mysql_conn = get_mysql_conn()
         if not mysql_conn:
             return
         cur = mysql_conn.cursor()
+        heater_status = bool(heater)
+        fan_status = bool(fan)
+        light_status = bool(light)
+        humidifier_status = bool(humidifier)
+        
         cur.execute(
             """
             UPDATE container_data
@@ -250,9 +179,10 @@ def update_db(temp, hum, lux_percent, gas, heater, fan, light, humidifier, conta
             mysql_conn.close()
         except Exception:
             pass
-        print(f"[MySQL] Mirrored container_data for container {container_id}")
+        _last_db_write_ts = now_ts
+        print(f"[DB] Updated container_data for container {container_id}")
     except Exception as e:
-        print(f"[MySQL] Error writing mirror: {e}")
+        print(f"[DB] Error: {e}")
 
 # ─── Decision Logic ───────────────────────────────────────
 def adc_to_percent(adc_value):

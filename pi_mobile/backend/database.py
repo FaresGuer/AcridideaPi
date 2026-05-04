@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 import os
@@ -8,7 +8,7 @@ from mysql.connector import Error as MySQLError
 
 load_dotenv()
 
-# Local MySQL configuration (for mobile app fast reads / gateway local DB)
+# MySQL configuration (only database)
 MYSQL_HOST = os.getenv("DB_HOST", "127.0.0.1")
 MYSQL_PORT = int(os.getenv("DB_PORT", "3306"))
 MYSQL_USER = os.getenv("DB_USER", "root")
@@ -22,23 +22,8 @@ MYSQL_CONFIG = {
     "database": MYSQL_DB,
 }
 
-# Primary: MySQL (local, fast)
+# SQLAlchemy engine pointing to MySQL only
 DATABASE_URL = f"mysql+mysqlconnector://{quote_plus(MYSQL_USER)}:{quote_plus(MYSQL_PASSWORD)}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
-
-# Secondary: Neon Postgres (cloud, for mirroring)
-NEON_DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not NEON_DATABASE_URL:
-    # Fallback: build Neon URL from env vars if not set
-    DB_HOST_NEON = os.getenv("DB_HOST_NEON", "localhost")
-    DB_PORT_NEON = os.getenv("DB_PORT_NEON", "5432")
-    DB_USER_NEON = os.getenv("DB_USER_NEON", "postgres")
-    DB_PASSWORD_NEON = os.getenv("DB_PASSWORD_NEON", "")
-    DB_NAME_NEON = os.getenv("DB_NAME_NEON", "locust_farm")
-    
-    encoded_user_neon = quote_plus(DB_USER_NEON)
-    encoded_password_neon = quote_plus(DB_PASSWORD_NEON)
-    NEON_DATABASE_URL = f"postgresql+psycopg://{encoded_user_neon}:{encoded_password_neon}@{DB_HOST_NEON}:{DB_PORT_NEON}/{DB_NAME_NEON}"
 
 # Create engine with connection pooling
 engine = create_engine(
@@ -72,31 +57,3 @@ def get_mysql_connection():
     except MySQLError as e:
         print(f"[MySQL] Connection failed: {e}")
         return None
-
-
-def mirror_to_mysql(query: str, values: tuple = ()) -> bool:
-    """Execute an INSERT/UPDATE query on Neon Postgres as a mirror (best-effort). Returns True if successful."""
-    try:
-        # Create a separate engine for Neon mirroring
-        neon_engine = create_engine(
-            NEON_DATABASE_URL,
-            echo=False,
-            pool_pre_ping=True,
-            connect_args={"connect_timeout": 10},
-        )
-        # Use a raw DBAPI connection for widest compatibility with cursor.execute
-        raw_conn = neon_engine.raw_connection()
-        try:
-            cursor = raw_conn.cursor()
-            cursor.execute(query, values)
-            raw_conn.commit()
-            cursor.close()
-        finally:
-            try:
-                raw_conn.close()
-            except Exception:
-                pass
-        return True
-    except Exception as e:
-        print(f"[Neon] Mirror write failed: {e}\nQuery: {query}\nValues: {values}")
-        return False

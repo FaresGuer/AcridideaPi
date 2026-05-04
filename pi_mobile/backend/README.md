@@ -24,9 +24,7 @@ backend/
 ### 1. Prerequisites
 - Python 3.9+
 - pip
-- Database:
-  - Local PostgreSQL 12+, or
-  - Neon (free PostgreSQL cloud tier) — recommended
+- MySQL 5.7+ (local or remote)
 
 ### 2. Install Dependencies
 
@@ -37,15 +35,15 @@ pip install -r requirements.txt
 
 ### 3. Configure Environment Variables
 
-#### Option A: Neon (Recommended)
-
-1. Create a free account at [neon.tech](https://neon.tech)
-2. Create a project and database
-3. Copy the connection string (looks like `postgresql+psycopg://user:password@ep-xxxxx.us-east-1.aws.neon.tech/locust_farm?sslmode=require`)
-4. Edit `.env`:
+Edit `.env` with your MySQL configuration:
 
 ```env
-DATABASE_URL=postgresql+psycopg://user:password@ep-xxxxx.us-east-1.aws.neon.tech/locust_farm?sslmode=require
+# Local MySQL Database Configuration
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=locust_farm
 
 SECRET_KEY=your_secret_key_here_change_in_production
 ALGORITHM=HS256
@@ -59,34 +57,17 @@ TWILIO_FROM_PHONE=+1XXXXXXXXXX
 # Global recipient for all critical alerts
 CRITICAL_ALERT_PHONE=+216 98264250
 ```
-For Neon (no prior setup needed—database exists in cloud):
-```bash
-python init_db.py
-```
-
-For local PostgreSQL (create database first):
-```bash
-# Create the database (one-time only)
-createdb locust_farm
-
-# Then initializePostgreSQL
-
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=your_password
-DB_NAME=locust_farm
-
-SECRET_KEY=your_secret_key_here_change_in_production
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-```
 
 ### 4. Initialize Database
 
+Ensure MySQL is running and the database exists:
+
 ```bash
-# Create database and tables
+# Create the database (one-time only)
+# MySQL CLI:
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS locust_farm;"
+
+# Then initialize tables:
 python init_db.py
 
 # (Optional) Create demo users
